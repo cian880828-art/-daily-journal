@@ -20,7 +20,12 @@ function endpointUrl(model: string, apiKey: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
 }
 
-async function callGemini(systemInstruction: string, userText: string, maxOutputTokens: number): Promise<string> {
+async function callGemini(
+  systemInstruction: string,
+  userText: string,
+  maxOutputTokens: number,
+  responseSchema: object,
+): Promise<string> {
   const apiKey = getApiKey()
   if (!apiKey) {
     throw new AiConfigError('尚未設定 Gemini API Key，請先到設定頁輸入。')
@@ -39,6 +44,12 @@ async function callGemini(systemInstruction: string, userText: string, maxOutput
           temperature: 0.6,
           maxOutputTokens,
           responseMimeType: 'application/json',
+          // Constrains generation to this exact shape (JSON-guided
+          // decoding), rather than trusting the model to follow a JSON
+          // description we put in the prompt text — this is what
+          // actually fixed the "AI 回覆格式異常" failures; describing
+          // the shape in the prompt alone was not reliable enough.
+          responseSchema,
           // This is a template-filling task, not something that benefits
           // from reasoning — and on thinking-capable models (e.g.
           // gemini-3.6-flash), leaving it on burns the token budget on
@@ -110,8 +121,18 @@ function parseJson<T>(raw: string): T {
         // fall through
       }
     }
+    // Logged (not shown to the user) so a real failure can still be
+    // diagnosed from the browser console instead of being a total
+    // black box.
+    console.error('[daily-journal] Gemini response failed to parse as JSON:', raw)
     throw new AiRequestError('AI 回覆格式異常，請再試一次。')
   }
+}
+
+const CONNECTION_TEST_SCHEMA = {
+  type: 'OBJECT',
+  properties: { ok: { type: 'BOOLEAN' } },
+  required: ['ok'],
 }
 
 export async function testConnection(): Promise<void> {
@@ -119,6 +140,7 @@ export async function testConnection(): Promise<void> {
     '你只需要用繁體中文回覆一個 JSON：{"ok": true}，不要加其他文字。',
     '請確認連線。',
     200,
+    CONNECTION_TEST_SCHEMA,
   )
 }
 
@@ -145,20 +167,38 @@ function serializeEntries(entries: JournalEntry[]): string {
     .join('\n---\n')
 }
 
+const WEEKLY_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    emotionAnalysis: { type: 'STRING' },
+    stressors: { type: 'ARRAY', items: { type: 'STRING' } },
+    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
+    encouragement: { type: 'STRING' },
+  },
+  required: ['emotionAnalysis', 'stressors', 'suggestions', 'encouragement'],
+}
+
 export async function analyzeWeek(entries: JournalEntry[]): Promise<AiWeeklyInsight> {
   const userText = `以下是使用者最近 7 天的日記紀錄（依日期排序）：
 
 ${serializeEntries(entries)}
 
-請根據這些內容，回傳符合以下 JSON 結構的分析（字串內容一律繁體中文）：
-{
-  "emotionAnalysis": "2-3 句話，分析這週的情緒模式與變化",
-  "stressors": ["1-3 個這週可能的壓力來源，盡量具體引用紀錄中的內容"],
-  "suggestions": ["2-4 個具體、可執行的建議，針對這週的情況客製化，不要講空泛的大道理"],
-  "encouragement": "1 句給使用者的鼓勵的話"
-}`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1536)
+請根據這些內容分析（字串內容一律繁體中文）：
+- emotionAnalysis：2-3 句話，分析這週的情緒模式與變化
+- stressors：1-3 個這週可能的壓力來源，盡量具體引用紀錄中的內容
+- suggestions：2-4 個具體、可執行的建議，針對這週的情況客製化，不要講空泛的大道理
+- encouragement：1 句給使用者的鼓勵的話`
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 2048, WEEKLY_SCHEMA)
   return parseJson<AiWeeklyInsight>(raw)
+}
+
+const DAILY_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    reflection: { type: 'STRING' },
+    suggestion: { type: 'STRING' },
+  },
+  required: ['reflection', 'suggestion'],
 }
 
 export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
@@ -166,12 +206,10 @@ export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
 
 ${serializeEntries([entry])}
 
-請根據這篇紀錄，回傳符合以下 JSON 結構的簡短回應（字串內容一律繁體中文，語氣像貼心的朋友，不要說教）：
-{
-  "reflection": "1-2 句話，回應今天的心情與內容，讓使用者感覺被理解",
-  "suggestion": "1 個具體、溫和、今天或明天就能做的小建議或提醒，針對今天的內容客製化"
-}`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 768)
+請根據這篇紀錄，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文）分析：
+- reflection：1-2 句話，回應今天的心情與內容，讓使用者感覺被理解
+- suggestion：1 個具體、溫和、今天或明天就能做的小建議或提醒，針對今天的內容客製化`
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1024, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
 
@@ -181,20 +219,31 @@ export function computeFingerprint(entries: JournalEntry[]): string {
   return entries.map((e) => `${e.date}:${e.updatedAt}`).join('|')
 }
 
+const MONTHLY_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    emotionAnalysis: { type: 'STRING' },
+    happyPatterns: { type: 'STRING' },
+    anxietyPatterns: { type: 'STRING' },
+    trend: { type: 'STRING' },
+    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
+    encouragement: { type: 'STRING' },
+  },
+  required: ['emotionAnalysis', 'happyPatterns', 'anxietyPatterns', 'trend', 'suggestions', 'encouragement'],
+}
+
 export async function analyzeMonth(entries: JournalEntry[]): Promise<AiMonthlyInsight> {
   const userText = `以下是使用者這個月的日記紀錄（依日期排序）：
 
 ${serializeEntries(entries)}
 
-請根據這些內容，回傳符合以下 JSON 結構的分析（字串內容一律繁體中文）：
-{
-  "emotionAnalysis": "2-3 句話，分析這個月整體的情緒狀態",
-  "happyPatterns": "1-2 句話，這個月什麼樣的事最容易讓使用者開心",
-  "anxietyPatterns": "1-2 句話，這個月什麼樣的事最容易讓使用者焦慮或不舒服",
-  "trend": "1 句話，最近情緒是變好、變差還是持平，並簡短說明原因",
-  "suggestions": ["2-4 個具體、可執行的建議，針對這個月的情況客製化"],
-  "encouragement": "1 句給使用者的鼓勵的話"
-}`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 2048)
+請根據這些內容分析（字串內容一律繁體中文）：
+- emotionAnalysis：2-3 句話，分析這個月整體的情緒狀態
+- happyPatterns：1-2 句話，這個月什麼樣的事最容易讓使用者開心
+- anxietyPatterns：1-2 句話，這個月什麼樣的事最容易讓使用者焦慮或不舒服
+- trend：1 句話，最近情緒是變好、變差還是持平，並簡短說明原因
+- suggestions：2-4 個具體、可執行的建議，針對這個月的情況客製化
+- encouragement：1 句給使用者的鼓勵的話`
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 3072, MONTHLY_SCHEMA)
   return parseJson<AiMonthlyInsight>(raw)
 }
