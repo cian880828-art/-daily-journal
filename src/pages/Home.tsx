@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { useJournalEntries } from '../lib/useJournalEntries'
 import { computeHomeStats, findTimeCapsuleEntry } from '../lib/analytics'
 import { todayKey, formatDateLabel } from '../lib/dateUtils'
+import { DailyPromptCard } from '../components/DailyPromptCard'
 
 interface Props {
   journal: ReturnType<typeof useJournalEntries>
@@ -65,6 +66,34 @@ export function Home({ journal }: Props) {
         />
       </div>
 
+      {todayEntry && (
+        <div className="card mt-6">
+          <p className="text-xs font-medium text-stone-500 mb-3">今天的你</p>
+          <div className="flex items-center gap-4 mb-3">
+            <p className="text-2xl font-semibold text-stone-800">
+              {todayEntry.mood}
+              <span className="text-sm font-normal text-stone-400"> / 10</span>
+            </p>
+            {todayEntry.emotions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {todayEntry.emotions.map((emotion) => (
+                  <span key={emotion} className="rounded-full bg-sage-50 px-2.5 py-1 text-xs text-sage-600">
+                    {emotion}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          {todayEntry.grateful.trim() && (
+            <p className="text-sm text-stone-600 leading-relaxed line-clamp-2">
+              感謝：{todayEntry.grateful.trim()}
+            </p>
+          )}
+        </div>
+      )}
+
+      <DailyPromptCard />
+
       {timeCapsule && (
         <Link
           to={`/entry/${timeCapsule.entry.date}`}
@@ -80,8 +109,8 @@ export function Home({ journal }: Props) {
 
 function StatCard({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
-    <div className="card !p-4 text-center">
-      <p className="text-xs text-stone-400 mb-1.5">{label}</p>
+    <div className="card !p-3 text-center">
+      <p className="text-xs text-stone-400 mb-1">{label}</p>
       <p className="text-xl font-semibold text-stone-800">
         {value}
         <span className="text-xs font-normal text-stone-400 ml-0.5">{unit}</span>

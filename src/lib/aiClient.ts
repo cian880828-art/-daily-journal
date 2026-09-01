@@ -1,5 +1,5 @@
 import type { JournalEntry } from '../types/journal'
-import type { AiDailyInsight, AiMonthlyInsight, AiWeeklyInsight } from '../types/aiInsight'
+import type { AiDailyInsight, AiMonthlyInsight, AiPromptInsight, AiWeeklyInsight } from '../types/aiInsight'
 import { formatDateLabel } from './dateUtils'
 import { getApiKey, getModel } from './aiSettings'
 
@@ -212,6 +212,28 @@ ${serializeEntries([entry])}
 - suggestion：1 個具體、溫和、今天或明天就能做的小建議或提醒，針對今天的內容客製化`
   const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1024, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
+}
+
+const PROMPT_INSIGHT_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    reflection: { type: 'STRING' },
+    nextStep: { type: 'STRING' },
+  },
+  required: ['reflection', 'nextStep'],
+}
+
+export async function analyzePrompt(question: string, answer: string): Promise<AiPromptInsight> {
+  const userText = `使用者今天回答了一個自我覺察問題：
+
+問題：${question}
+回答：${answer}
+
+請根據這個回答，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文）分析：
+- reflection：1-2 句話，回應這個答案本身，讓使用者感覺被理解，不要重複問題
+- nextStep：1 個具體、溫和、今天或明天就能做的小建議，針對這個答案客製化`
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1024, PROMPT_INSIGHT_SCHEMA)
+  return parseJson<AiPromptInsight>(raw)
 }
 
 /** Cheap fingerprint of a set of entries, used to detect when a cached AI

@@ -3,6 +3,11 @@ export interface AiDailyInsight {
   suggestion: string
 }
 
+export interface AiPromptInsight {
+  reflection: string
+  nextStep: string
+}
+
 export interface AiWeeklyInsight {
   emotionAnalysis: string
   stressors: string[]
