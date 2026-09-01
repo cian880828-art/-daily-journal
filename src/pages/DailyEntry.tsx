@@ -179,7 +179,7 @@ export function DailyEntry({ journal }: Props) {
 }
 
 function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiDailyInsight>> }) {
-  const { cached, stale, loading, error, analyze, apiKeyConfigured } = ai
+  const { cached, stale, loading, error, analyze, apiKeyConfigured, progressLabel } = ai
 
   if (!apiKeyConfigured) {
     return (
@@ -217,7 +217,7 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiDailyInsight>>
         </button>
       )}
 
-      {loading && !cached && <p className="text-sm text-stone-400 py-2">分析中，請稍候…</p>}
+      {loading && !cached && <p className="text-sm text-stone-400 py-2">{progressLabel}</p>}
 
       {error && <p className="text-sm text-clay-500 mt-2">{error}</p>}
 
