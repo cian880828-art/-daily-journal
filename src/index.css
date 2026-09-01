@@ -5,10 +5,16 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    /* iOS Safari's rubber-band bounce at the top/bottom of the page can
+       make position:fixed elements (the bottom nav) visually detach from
+       the viewport edge for a frame, revealing page content underneath
+       it — this disables that overscroll bounce so the nav stays put. */
+    overscroll-behavior-y: none;
   }
   body {
     @apply bg-paper text-ink antialiased;
     font-feature-settings: 'palt';
+    overscroll-behavior-y: none;
   }
 }
 
