@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { useJournalEntries } from '../lib/useJournalEntries'
-import { buildMonthlyInsights } from '../lib/analytics'
+import { buildLongTermThemes, buildMonthlyInsights } from '../lib/analytics'
 import { analyzeMonth, computeFingerprint } from '../lib/aiClient'
 import { useAiInsight } from '../lib/useAiInsight'
 import type { AiMonthlyInsight } from '../types/aiInsight'
@@ -43,9 +43,32 @@ export function Insights({ journal }: Props) {
     analyzeMonth(insights.entries),
   )
 
+  const longTermThemes = useMemo(() => buildLongTermThemes(entries), [entries])
+
   return (
     <div>
       <PageHeader title="Insights" subtitle="慢慢認識自己的樣子" />
+
+      <Link
+        to="/reflections"
+        className="card !p-4 mb-6 flex items-center justify-between text-sage-600 text-sm font-medium"
+      >
+        查看感謝清單與自我肯定紀錄
+        <span aria-hidden>→</span>
+      </Link>
+
+      {longTermThemes.length > 0 && (
+        <div className="card bg-clay-100/40 border-clay-200/60 mb-6">
+          <p className="text-xs text-clay-500 font-medium mb-2">最近三個月，反覆出現的主題</p>
+          <div className="flex flex-wrap gap-2">
+            {longTermThemes.map((t) => (
+              <span key={t.keyword} className="rounded-full bg-white px-3 py-1.5 text-sm text-stone-600">
+                {t.keyword}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-6">
         <button

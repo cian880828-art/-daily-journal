@@ -50,6 +50,16 @@ export function lastNDays(n: number, endKey: string = todayKey()): string[] {
   return out
 }
 
+/** N months before the given date key, same day-of-month (JS Date rolls
+ * overflow into the next month on short months — acceptable for the
+ * "time capsule" feature this backs, which only needs an approximate
+ * anniversary). */
+export function subtractMonths(key: string, months: number): string {
+  const d = parseDateKey(key)
+  d.setMonth(d.getMonth() - months)
+  return toDateKey(d)
+}
+
 /** Consecutive-day streak ending today, given a set of recorded date keys. */
 export function computeStreak(dateKeys: Set<string>, endKey: string = todayKey()): number {
   let streak = 0
