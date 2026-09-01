@@ -273,13 +273,13 @@ function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
               </p>
             </div>
             {Array.isArray(value) ? (
-              <ul className="space-y-1">
+              <ol className="space-y-1">
                 {value.map((s, j) => (
                   <li key={j} className="text-sm text-stone-700 leading-relaxed">
-                    · {s}
+                    {j + 1}. {s}
                   </li>
                 ))}
-              </ul>
+              </ol>
             ) : (
               <p className="text-sm text-stone-700 leading-relaxed">{value}</p>
             )}
