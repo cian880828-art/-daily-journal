@@ -32,10 +32,18 @@ async function callGemini(
   }
   const model = getModel()
 
+  // Without this, a hung request (bad network, silent rate-limit, etc.)
+  // leaves the caller's loading state stuck forever with no way to
+  // recover except reloading the page.
+  const TIMEOUT_MS = 30_000
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
   let response: Response
   try {
     response = await fetch(endpointUrl(model, apiKey), {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -61,8 +69,13 @@ async function callGemini(
         },
       }),
     })
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new AiRequestError('連線逾時，請確認網路連線後再試一次。')
+    }
     throw new AiRequestError('無法連線到 Gemini API，請檢查網路連線。')
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   if (!response.ok) {

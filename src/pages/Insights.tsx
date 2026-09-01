@@ -264,6 +264,16 @@ function TextInsights({ insights }: { insights: ReturnType<typeof buildMonthlyIn
     lines.push(`低心情通常出現在？　${insights.lowMoodWeekdays.slice(0, 2).map((w) => w.weekday).join('、')}`)
   }
 
+  // With too little data, none of the keyword/pattern lines above have
+  // enough repetition to qualify — rather than leaving just the trend
+  // line looking like a near-empty/broken card, say plainly that it's
+  // still accumulating so the emptiness reads as "not yet" rather than
+  // "something's wrong."
+  const hasPatternLines = lines.length > 0
+  if (!hasPatternLines) {
+    lines.push('再多寫幾天，這裡會慢慢出現你的開心、焦慮、感謝關鍵字')
+  }
+
   const trendText =
     insights.trend === 'up'
       ? '最近情緒正在變好 ↗'
