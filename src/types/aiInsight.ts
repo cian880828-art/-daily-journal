@@ -1,10 +1,11 @@
 export interface AiDailyInsight {
-  whatHappened: string
-  feelings: string
-  needs: string
-  rootCause: string
+  coreEvent: string
+  surfaceFeelings: string
+  underlyingNeeds: string
+  coreWound: string
+  innerPattern: string
   reframe: string
-  nextStep: string
+  explorationQuestion: string
 }
 
 export interface AiPromptInsight {

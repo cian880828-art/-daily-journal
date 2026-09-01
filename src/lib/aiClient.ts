@@ -307,14 +307,23 @@ ${serializeEntries(entries)}
 const DAILY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    whatHappened: { type: 'STRING' },
-    feelings: { type: 'STRING' },
-    needs: { type: 'STRING' },
-    rootCause: { type: 'STRING' },
+    coreEvent: { type: 'STRING' },
+    surfaceFeelings: { type: 'STRING' },
+    underlyingNeeds: { type: 'STRING' },
+    coreWound: { type: 'STRING' },
+    innerPattern: { type: 'STRING' },
     reframe: { type: 'STRING' },
-    nextStep: { type: 'STRING' },
+    explorationQuestion: { type: 'STRING' },
   },
-  required: ['whatHappened', 'feelings', 'needs', 'rootCause', 'reframe', 'nextStep'],
+  required: [
+    'coreEvent',
+    'surfaceFeelings',
+    'underlyingNeeds',
+    'coreWound',
+    'innerPattern',
+    'reframe',
+    'explorationQuestion',
+  ],
 }
 
 export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
@@ -322,14 +331,19 @@ export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
 
 ${serializeEntries([entry])}
 
-如果紀錄裡有寫「難過、不舒服或煩躁的事」，請把下面每一項都聚焦在那件事上分析；如果那項是空的，才根據今天整體紀錄分析。用像貼心朋友的語氣（不要說教，字串內容一律繁體中文，每項 3-5 句話，寫得深入、具體，不要只是簡短帶過或講空泛的大道理，盡量具體引用紀錄中的內容），依序拆解：
-- whatHappened：仔細描述那件難過/不舒服的事（或沒有的話，今天整體發生的事），只根據紀錄內容，不要腦補，但可以合理推測情境細節
-- feelings：深入描述使用者面對這件事當下的情緒感受，包含可能同時存在的多種情緒，不只是重複心情分數
-- needs：心情不好或不舒服時，通常代表有什麼願望、需求沒有被好好接住，盡量具體說明是哪一種需求
-- rootCause：這個難過/不舒服背後比較真正的原因是什麼，感受已經到了，原因可能還沒說出口，可以連結到可能的深層信念或過去經驗
-- reframe：針對這件讓使用者難過的事，換個角度看，溫和地重新框定，不用勉強樂觀，可以提供不只一種角度
-- nextStep：針對這件事，1-2 個具體、溫和、今天或明天就能做的小行動，並簡單說明為什麼這麼做會有幫助`
-  const raw = await callAi(SYSTEM_PREAMBLE, userText, 3072, DAILY_SCHEMA)
+如果紀錄裡有寫「難過、不舒服或煩躁的事」，請把分析聚焦在那件事上；如果是空的，才根據今天整體紀錄分析。
+
+語氣要求：溫柔但不要過度安慰，可以直白，不說教，不下診斷，不要用「你一定是因為…」這種肯定語氣的推斷，多用「可能」「看起來」「也許」。分析必須根據紀錄裡實際出現的內容，不要腦補紀錄裡沒有的事。
+
+請依序拆解（字串內容一律繁體中文，每項 3-5 句話，具體、不要空泛，不要逐字重述日記原文）：
+- coreEvent：簡短整理今天真正影響情緒的核心事件是什麼
+- surfaceFeelings：指出今天最明顯的 1-3 個情緒（例如焦慮、委屈、安心、失落、滿足）
+- underlyingNeeds：分析這些情緒背後可能在保護、渴望什麼樣的需求，可以參考這類對照但不必照抄、依實際情況調整：焦慮→想獲得確定感、委屈→希望被理解、生氣→界線被侵犯、孤單→渴望連結、嫉妒→害怕自己不夠重要
+- coreWound：找出今天真正讓使用者難受的核心，不一定是事件表面本身——例如不是「對方沒有回訊息」，而可能是「沒有被放在心上的感覺」
+- innerPattern：觀察今天是否透露出重複的思考或行為模式，例如：容易預想最壞結果、把安全感綁在別人的反應上、對自己要求過高、很難接受事情失去控制、習慣先照顧別人的感受、容易否定自己的需要——只描述可能的模式，絕對不要下心理疾病或人格診斷
+- reframe：提供一個使用者可能沒有想到、但合理且具體的觀點，幫助重新理解這件事，不是單純的正能量喊話
+- explorationQuestion：不要直接告訴使用者應該怎麼做，而是提出一個根據今天紀錄客製化、值得使用者自己回答的探索性問題，幫助他更理解自己（風格參考：「如果今天沒有人需要你證明自己，你真正想怎麼過這一天？」，但不要套用範例本身，要依今天的內容重新設計）`
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 3584, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
 

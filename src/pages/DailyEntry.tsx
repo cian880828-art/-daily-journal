@@ -233,12 +233,13 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiDailyInsight>>
 }
 
 const DAILY_STEPS: { key: keyof AiDailyInsight; title: string }[] = [
-  { key: 'whatHappened', title: '發生了什麼事' },
-  { key: 'feelings', title: '你的感受' },
-  { key: 'needs', title: '想要的東西' },
-  { key: 'rootCause', title: '真正的原因' },
+  { key: 'coreEvent', title: '今天真正影響你的是什麼' },
+  { key: 'surfaceFeelings', title: '你表面感受到的是' },
+  { key: 'underlyingNeeds', title: '情緒底下其實在需要什麼' },
+  { key: 'coreWound', title: '真正刺痛你的地方' },
+  { key: 'innerPattern', title: '今天看見的內在模式' },
   { key: 'reframe', title: '換個角度看' },
-  { key: 'nextStep', title: '接下來可以怎麼做' },
+  { key: 'explorationQuestion', title: '接下來可以怎麼做' },
 ]
 
 function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
