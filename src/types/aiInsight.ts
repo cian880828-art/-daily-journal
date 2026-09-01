@@ -6,6 +6,7 @@ export interface AiDailyInsight {
   innerPattern: string
   reframe: string
   explorationQuestion: string
+  suggestions: string[]
 }
 
 export interface AiPromptInsight {
