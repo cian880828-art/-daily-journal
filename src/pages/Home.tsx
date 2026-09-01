@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { useJournalEntries } from '../lib/useJournalEntries'
-import { computeHomeStats } from '../lib/analytics'
+import { computeHomeStats, findTimeCapsuleEntry } from '../lib/analytics'
 import { todayKey, formatDateLabel } from '../lib/dateUtils'
 
 interface Props {
@@ -12,6 +12,7 @@ export function Home({ journal }: Props) {
   const today = todayKey()
   const todayEntry = entries.find((e) => e.date === today)
   const stats = computeHomeStats(entries)
+  const timeCapsule = findTimeCapsuleEntry(entries, today)
 
   return (
     <div>
@@ -63,6 +64,16 @@ export function Home({ journal }: Props) {
           unit="分"
         />
       </div>
+
+      {timeCapsule && (
+        <Link
+          to={`/entry/${timeCapsule.entry.date}`}
+          className="card mt-6 block bg-sage-50/70 border-sage-200/60"
+        >
+          <p className="text-xs text-sage-600 font-medium mb-2">{timeCapsule.label}</p>
+          <p className="text-sm text-stone-700 leading-relaxed">{timeCapsule.entry.noteToSelf}</p>
+        </Link>
+      )}
     </div>
   )
 }

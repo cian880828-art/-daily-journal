@@ -1,5 +1,13 @@
 import type { Emotion, JournalEntry } from '../types/journal'
-import { computeStreak, formatShort, isSameMonth, lastNDays, parseDateKey, todayKey } from './dateUtils'
+import {
+  computeStreak,
+  formatShort,
+  isSameMonth,
+  lastNDays,
+  parseDateKey,
+  subtractMonths,
+  todayKey,
+} from './dateUtils'
 
 export interface HomeStats {
   streak: number
@@ -310,4 +318,76 @@ export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Dat
     trend,
     trendDelta,
   }
+}
+
+export type ReflectionField = 'grateful' | 'proudOf'
+
+export interface ReflectionItem {
+  date: string
+  text: string
+}
+
+export interface ReflectionMonthGroup {
+  monthLabel: string
+  items: ReflectionItem[]
+}
+
+/** All non-empty values of one free-text field, newest first, grouped by
+ * calendar month — powers the gratitude list and self-affirmation record
+ * (both are "collect everything the user wrote for field X" views). */
+export function collectReflections(entries: JournalEntry[], field: ReflectionField): ReflectionMonthGroup[] {
+  const items: ReflectionItem[] = entries
+    .filter((e) => e[field].trim())
+    .map((e) => ({ date: e.date, text: e[field].trim() }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+
+  const groups = new Map<string, ReflectionItem[]>()
+  for (const item of items) {
+    const d = parseDateKey(item.date)
+    const key = `${d.getFullYear()}-${d.getMonth()}`
+    const bucket = groups.get(key) ?? []
+    bucket.push(item)
+    groups.set(key, bucket)
+  }
+
+  return [...groups.entries()].map(([key, groupItems]) => {
+    const [year, month] = key.split('-').map(Number)
+    return { monthLabel: `${year} 年 ${month + 1} 月`, items: groupItems }
+  })
+}
+
+export interface TimeCapsuleEntry {
+  entry: JournalEntry
+  label: string
+}
+
+/** Surfaces a past "給自己的話" on its approximate anniversary — 1 year,
+ * then 3 months, then 1 month back, in that order (further back is more
+ * resonant, so it wins if multiple exist). Returns null rather than
+ * guessing when nothing matches; this is a delight-on-occasion feature,
+ * not something to force onto every visit. */
+export function findTimeCapsuleEntry(entries: JournalEntry[], endKey: string = todayKey()): TimeCapsuleEntry | null {
+  const byDate = new Map(entries.map((e) => [e.date, e]))
+  const candidates: { date: string; label: string }[] = [
+    { date: subtractMonths(endKey, 12), label: '一年前的你，對自己說' },
+    { date: subtractMonths(endKey, 3), label: '三個月前的你，對自己說' },
+    { date: subtractMonths(endKey, 1), label: '一個月前的你，對自己說' },
+  ]
+
+  for (const { date, label } of candidates) {
+    const entry = byDate.get(date)
+    if (entry && entry.noteToSelf.trim()) {
+      return { entry, label }
+    }
+  }
+  return null
+}
+
+/** Recurring themes over a longer window than a single month — the same
+ * extraction as monthly Insights, just over more history, so patterns
+ * that only show up across seasons (not within one month) surface too. */
+export function buildLongTermThemes(entries: JournalEntry[], windowDays = 90) {
+  const window = new Set(lastNDays(windowDays))
+  const windowed = entries.filter((e) => window.has(e.date))
+  return extractKeywords(windowed.flatMap((e) => [e.happy, e.upset, e.proudOf, e.grateful]), 8, 3)
 }

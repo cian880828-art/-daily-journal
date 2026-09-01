@@ -6,6 +6,7 @@ import { DailyEntry } from './pages/DailyEntry'
 import { History } from './pages/History'
 import { WeeklyReview } from './pages/WeeklyReview'
 import { Insights } from './pages/Insights'
+import { Reflections } from './pages/Reflections'
 import { Settings } from './pages/Settings'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/history" element={<History journal={journal} />} />
           <Route path="/weekly" element={<WeeklyReview journal={journal} />} />
           <Route path="/insights" element={<Insights journal={journal} />} />
+          <Route path="/reflections" element={<Reflections journal={journal} />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
