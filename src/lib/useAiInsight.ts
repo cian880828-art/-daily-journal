@@ -17,6 +17,17 @@ function writeCache<T>(key: string, value: CachedAiInsight<T>): void {
   localStorage.setItem(PREFIX + key, JSON.stringify(value))
 }
 
+/** Gemini's non-streaming API gives no real progress signal — this is a
+ * best-effort read on elapsed time, not a report of what's actually
+ * happening server-side. Still better than a static "分析中" that looks
+ * identical whether it's been 2 seconds or 20. */
+function progressLabel(elapsedSeconds: number): string {
+  if (elapsedSeconds < 2) return '連線到 Gemini…'
+  if (elapsedSeconds < 6) return 'AI 正在閱讀你的紀錄…'
+  if (elapsedSeconds < 12) return '整理成分析結果…'
+  return '快好了，再等一下…'
+}
+
 /** Runs an AI analysis on demand (never automatically, to avoid surprise
  * API usage) and caches the result in localStorage keyed by a fingerprint
  * of the source entries, so re-visiting a page doesn't re-call the API
@@ -25,6 +36,7 @@ export function useAiInsight<T>(cacheKey: string, fingerprint: string, run: () =
   const [cached, setCached] = useState<CachedAiInsight<T> | null>(() => readCache<T>(cacheKey))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   // cacheKey can change without the component unmounting (switching the
   // date on the daily entry page, or the month on Insights) — re-read
@@ -40,6 +52,11 @@ export function useAiInsight<T>(cacheKey: string, fingerprint: string, run: () =
   const analyze = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setElapsedSeconds(0)
+    const startedAt = Date.now()
+    const tick = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
     try {
       const result = await run()
       const entry: CachedAiInsight<T> = {
@@ -53,9 +70,18 @@ export function useAiInsight<T>(cacheKey: string, fingerprint: string, run: () =
     } catch (err) {
       setError(err instanceof Error ? err.message : '分析失敗，請再試一次')
     } finally {
+      clearInterval(tick)
       setLoading(false)
     }
   }, [cacheKey, fingerprint, run])
 
-  return { cached, stale, loading, error, analyze, apiKeyConfigured: hasApiKey() }
+  return {
+    cached,
+    stale,
+    loading,
+    error,
+    analyze,
+    apiKeyConfigured: hasApiKey(),
+    progressLabel: progressLabel(elapsedSeconds),
+  }
 }
