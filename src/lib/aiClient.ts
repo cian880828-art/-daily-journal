@@ -209,10 +209,14 @@ ${serializeEntries(entries)}
 const DAILY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    reflection: { type: 'STRING' },
-    suggestion: { type: 'STRING' },
+    whatHappened: { type: 'STRING' },
+    feelings: { type: 'STRING' },
+    needs: { type: 'STRING' },
+    rootCause: { type: 'STRING' },
+    reframe: { type: 'STRING' },
+    nextStep: { type: 'STRING' },
   },
-  required: ['reflection', 'suggestion'],
+  required: ['whatHappened', 'feelings', 'needs', 'rootCause', 'reframe', 'nextStep'],
 }
 
 export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
@@ -220,10 +224,14 @@ export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
 
 ${serializeEntries([entry])}
 
-請根據這篇紀錄，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文）分析：
-- reflection：1-2 句話，回應今天的心情與內容，讓使用者感覺被理解
-- suggestion：1 個具體、溫和、今天或明天就能做的小建議或提醒，針對今天的內容客製化`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1024, DAILY_SCHEMA)
+請根據這篇紀錄，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文，每項 1-2 句話），依序拆解：
+- whatHappened：客觀摘要今天發生的事，只根據紀錄內容，不要腦補
+- feelings：描述使用者當下比較深層的情緒感受，不只是重複心情分數
+- needs：心情不好或不舒服時，通常代表有什麼願望、需求沒有被好好接住
+- rootCause：感受背後比較真正的原因是什麼，感受已經到了，原因可能還沒說出口
+- reframe：換個角度看這件事，溫和地重新框定，不用勉強樂觀
+- nextStep：1 個具體、溫和、今天或明天就能做的小行動`
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1536, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
 
