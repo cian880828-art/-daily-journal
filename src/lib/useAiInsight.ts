@@ -17,12 +17,12 @@ function writeCache<T>(key: string, value: CachedAiInsight<T>): void {
   localStorage.setItem(PREFIX + key, JSON.stringify(value))
 }
 
-/** Gemini's non-streaming API gives no real progress signal — this is a
- * best-effort read on elapsed time, not a report of what's actually
- * happening server-side. Still better than a static "分析中" that looks
- * identical whether it's been 2 seconds or 20. */
+/** Neither provider's non-streaming API gives a real progress signal —
+ * this is a best-effort read on elapsed time, not a report of what's
+ * actually happening server-side. Still better than a static "分析中"
+ * that looks identical whether it's been 2 seconds or 20. */
 function progressLabel(elapsedSeconds: number): string {
-  if (elapsedSeconds < 2) return '連線到 Gemini…'
+  if (elapsedSeconds < 2) return '連線到 AI 服務…'
   if (elapsedSeconds < 6) return 'AI 正在閱讀你的紀錄…'
   if (elapsedSeconds < 12) return '整理成分析結果…'
   return '快好了，再等一下…'

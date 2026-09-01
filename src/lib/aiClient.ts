@@ -1,12 +1,13 @@
 import type { JournalEntry } from '../types/journal'
 import type { AiDailyInsight, AiMonthlyInsight, AiPromptInsight, AiWeeklyInsight } from '../types/aiInsight'
 import { formatDateLabel } from './dateUtils'
-import { getApiKey, getModel } from './aiSettings'
+import { getApiKey, getModel, getProvider } from './aiSettings'
 
-/** Thin client for Google's Gemini API (free tier), called directly from
- * the browser with the user's own key — no backend. Plain `fetch` against
- * the plain `models/{model}:generateContent` REST endpoint is used
- * deliberately instead of the `@google/genai` SDK: the SDK's newer
+/** Thin clients for the supported AI providers (Gemini, Groq), called
+ * directly from the browser with the user's own key — no backend, so
+ * whether a provider works at all depends on it allowing direct
+ * cross-origin browser calls (CORS). Gemini's legacy REST endpoint is
+ * used deliberately instead of the `@google/genai` SDK: the SDK's newer
  * "Interactions API" path sets an `Api-Revision` header that Gemini's
  * CORS config doesn't allow, which breaks entirely in the browser. The
  * legacy `generateContent` endpoint never sets that header and works
@@ -20,17 +21,35 @@ function endpointUrl(model: string, apiKey: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
 }
 
+/** Dispatches to whichever provider is currently configured in Settings.
+ * responseSchema is Gemini-specific JSON-guided decoding — Groq's
+ * OpenAI-compatible API has no equivalent, so for Groq we rely on its
+ * `response_format: json_object` mode plus the schema already being
+ * spelled out in each analyze* function's userText prompt. */
+async function callAi(
+  systemInstruction: string,
+  userText: string,
+  maxOutputTokens: number,
+  responseSchema: object,
+): Promise<string> {
+  const provider = getProvider()
+  if (provider === 'groq') {
+    return callGroq(systemInstruction, userText, maxOutputTokens)
+  }
+  return callGemini(systemInstruction, userText, maxOutputTokens, responseSchema)
+}
+
 async function callGemini(
   systemInstruction: string,
   userText: string,
   maxOutputTokens: number,
   responseSchema: object,
 ): Promise<string> {
-  const apiKey = getApiKey()
+  const apiKey = getApiKey('gemini')
   if (!apiKey) {
     throw new AiConfigError('尚未設定 Gemini API Key，請先到設定頁輸入。')
   }
-  const model = getModel()
+  const model = getModel('gemini')
 
   // Without this, a hung request (bad network, silent rate-limit, etc.)
   // leaves the caller's loading state stuck forever with no way to
@@ -121,6 +140,85 @@ async function callGemini(
   return text
 }
 
+/** Groq's API is OpenAI-compatible (chat/completions), called the same
+ * way — direct fetch, no SDK. Unlike Gemini's endpoint, Groq (like most
+ * LLM providers) is built for server-side use; whether it allows direct
+ * browser calls at all is unverified here and depends on Groq's own CORS
+ * policy, which can only really be confirmed by trying it from a real
+ * browser. A network failure below is worded to cover that possibility
+ * rather than claiming a definite cause the browser doesn't expose. */
+async function callGroq(systemInstruction: string, userText: string, maxOutputTokens: number): Promise<string> {
+  const apiKey = getApiKey('groq')
+  if (!apiKey) {
+    throw new AiConfigError('尚未設定 Groq API Key，請先到設定頁輸入。')
+  }
+  const model = getModel('groq')
+
+  const TIMEOUT_MS = 30_000
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  let response: Response
+  try {
+    response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.6,
+        max_tokens: maxOutputTokens,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: userText },
+        ],
+      }),
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new AiRequestError('連線逾時，請確認網路連線後再試一次。')
+    }
+    throw new AiRequestError(
+      '無法連線到 Groq API。這可能是網路問題，也可能是 Groq 不允許瀏覽器直接呼叫（CORS）——如果一直發生，建議改回 Gemini。',
+    )
+  } finally {
+    clearTimeout(timeoutId)
+  }
+
+  if (!response.ok) {
+    let message = `Groq API 回應錯誤（HTTP ${response.status}）`
+    try {
+      const errBody = await response.json()
+      if (errBody?.error?.message) message = errBody.error.message
+    } catch {
+      // keep default message
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new AiConfigError(`API Key 可能不正確或沒有權限：${message}`)
+    }
+    if (response.status === 429) {
+      throw new AiRequestError('已達免費額度的速率限制，請稍後再試一次。')
+    }
+    throw new AiRequestError(message)
+  }
+
+  const data = await response.json()
+  const finishReason = data?.choices?.[0]?.finish_reason
+  const text: string = data?.choices?.[0]?.message?.content ?? ''
+
+  if (!text.trim()) {
+    if (finishReason === 'length') {
+      throw new AiRequestError('這次分析的內容太長被截斷了，請再試一次。')
+    }
+    throw new AiRequestError('Groq 沒有回傳內容，請再試一次。')
+  }
+  return text
+}
+
 function parseJson<T>(raw: string): T {
   const cleaned = raw.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
   try {
@@ -150,7 +248,7 @@ const CONNECTION_TEST_SCHEMA = {
 }
 
 export async function testConnection(): Promise<void> {
-  await callGemini(
+  await callAi(
     '你只需要用繁體中文回覆一個 JSON：{"ok": true}，不要加其他文字。',
     '請確認連線。',
     200,
@@ -202,7 +300,7 @@ ${serializeEntries(entries)}
 - stressors：1-3 個這週可能的壓力來源，盡量具體引用紀錄中的內容
 - suggestions：2-4 個具體、可執行的建議，針對這週的情況客製化，不要講空泛的大道理
 - encouragement：1 句給使用者的鼓勵的話`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 2048, WEEKLY_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 2048, WEEKLY_SCHEMA)
   return parseJson<AiWeeklyInsight>(raw)
 }
 
@@ -231,7 +329,7 @@ ${serializeEntries([entry])}
 - rootCause：感受背後比較真正的原因是什麼，感受已經到了，原因可能還沒說出口
 - reframe：換個角度看這件事，溫和地重新框定，不用勉強樂觀
 - nextStep：1 個具體、溫和、今天或明天就能做的小行動`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1536, DAILY_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 1536, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
 
@@ -253,7 +351,7 @@ export async function analyzePrompt(question: string, answer: string): Promise<A
 請根據這個回答，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文）分析：
 - reflection：1-2 句話，回應這個答案本身，讓使用者感覺被理解，不要重複問題
 - nextStep：1 個具體、溫和、今天或明天就能做的小建議，針對這個答案客製化`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1024, PROMPT_INSIGHT_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 1024, PROMPT_INSIGHT_SCHEMA)
   return parseJson<AiPromptInsight>(raw)
 }
 
@@ -288,6 +386,6 @@ ${serializeEntries(entries)}
 - trend：1 句話，最近情緒是變好、變差還是持平，並簡短說明原因
 - suggestions：2-4 個具體、可執行的建議，針對這個月的情況客製化
 - encouragement：1 句給使用者的鼓勵的話`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 3072, MONTHLY_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 3072, MONTHLY_SCHEMA)
   return parseJson<AiMonthlyInsight>(raw)
 }
