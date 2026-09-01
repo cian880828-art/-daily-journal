@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { CachedAiInsight } from '../types/aiInsight'
 import { getModel, hasApiKey } from './aiSettings'
 
@@ -25,6 +25,15 @@ export function useAiInsight<T>(cacheKey: string, fingerprint: string, run: () =
   const [cached, setCached] = useState<CachedAiInsight<T> | null>(() => readCache<T>(cacheKey))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // cacheKey can change without the component unmounting (switching the
+  // date on the daily entry page, or the month on Insights) — re-read
+  // that key's cache instead of carrying over the previous key's state.
+  useEffect(() => {
+    setCached(readCache<T>(cacheKey))
+    setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey])
 
   const stale = cached !== null && cached.fingerprint !== fingerprint
 

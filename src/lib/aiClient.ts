@@ -1,5 +1,5 @@
 import type { JournalEntry } from '../types/journal'
-import type { AiMonthlyInsight, AiWeeklyInsight } from '../types/aiInsight'
+import type { AiDailyInsight, AiMonthlyInsight, AiWeeklyInsight } from '../types/aiInsight'
 import { formatDateLabel } from './dateUtils'
 import { getApiKey, getModel } from './aiSettings'
 
@@ -39,6 +39,13 @@ async function callGemini(systemInstruction: string, userText: string, maxOutput
           temperature: 0.6,
           maxOutputTokens,
           responseMimeType: 'application/json',
+          // This is a template-filling task, not something that benefits
+          // from reasoning — and on thinking-capable models (e.g.
+          // gemini-3.6-flash), leaving it on burns the token budget on
+          // "thought" parts before any real answer, which both wastes
+          // free-tier quota and can starve maxOutputTokens entirely.
+          // Harmless no-op on models that ignore the field.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     })
@@ -70,9 +77,20 @@ async function callGemini(systemInstruction: string, userText: string, maxOutput
     throw new AiRequestError('這次的內容被安全機制擋下了，可以試著調整內容後再分析一次。')
   }
 
-  const parts = data?.candidates?.[0]?.content?.parts ?? []
-  const text = parts.map((p: { text?: string }) => p.text ?? '').join('')
+  // On thinking-capable models, the response can include "thought" parts
+  // (reasoning) alongside the real answer part — those must be excluded,
+  // or their prose gets concatenated into the JSON text and breaks
+  // parsing.
+  const parts: { text?: string; thought?: boolean }[] = data?.candidates?.[0]?.content?.parts ?? []
+  const text = parts
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? '')
+    .join('')
+
   if (!text.trim()) {
+    if (finishReason === 'MAX_TOKENS') {
+      throw new AiRequestError('這次分析的內容太長被截斷了，請再試一次。')
+    }
     throw new AiRequestError('Gemini 沒有回傳內容，請再試一次。')
   }
   return text
@@ -100,7 +118,7 @@ export async function testConnection(): Promise<void> {
   await callGemini(
     '你只需要用繁體中文回覆一個 JSON：{"ok": true}，不要加其他文字。',
     '請確認連線。',
-    50,
+    200,
   )
 }
 
@@ -139,8 +157,22 @@ ${serializeEntries(entries)}
   "suggestions": ["2-4 個具體、可執行的建議，針對這週的情況客製化，不要講空泛的大道理"],
   "encouragement": "1 句給使用者的鼓勵的話"
 }`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1024)
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1536)
   return parseJson<AiWeeklyInsight>(raw)
+}
+
+export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
+  const userText = `以下是使用者今天的日記紀錄：
+
+${serializeEntries([entry])}
+
+請根據這篇紀錄，回傳符合以下 JSON 結構的簡短回應（字串內容一律繁體中文，語氣像貼心的朋友，不要說教）：
+{
+  "reflection": "1-2 句話，回應今天的心情與內容，讓使用者感覺被理解",
+  "suggestion": "1 個具體、溫和、今天或明天就能做的小建議或提醒，針對今天的內容客製化"
+}`
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 768)
+  return parseJson<AiDailyInsight>(raw)
 }
 
 /** Cheap fingerprint of a set of entries, used to detect when a cached AI
@@ -163,6 +195,6 @@ ${serializeEntries(entries)}
   "suggestions": ["2-4 個具體、可執行的建議，針對這個月的情況客製化"],
   "encouragement": "1 句給使用者的鼓勵的話"
 }`
-  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 1536)
+  const raw = await callGemini(SYSTEM_PREAMBLE, userText, 2048)
   return parseJson<AiMonthlyInsight>(raw)
 }

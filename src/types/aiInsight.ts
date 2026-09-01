@@ -1,3 +1,8 @@
+export interface AiDailyInsight {
+  reflection: string
+  suggestion: string
+}
+
 export interface AiWeeklyInsight {
   emotionAnalysis: string
   stressors: string[]
