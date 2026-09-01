@@ -314,6 +314,7 @@ const DAILY_SCHEMA = {
     innerPattern: { type: 'STRING' },
     reframe: { type: 'STRING' },
     explorationQuestion: { type: 'STRING' },
+    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
   },
   required: [
     'coreEvent',
@@ -323,6 +324,7 @@ const DAILY_SCHEMA = {
     'innerPattern',
     'reframe',
     'explorationQuestion',
+    'suggestions',
   ],
 }
 
@@ -342,8 +344,9 @@ ${serializeEntries([entry])}
 - coreWound：找出今天真正讓使用者難受的核心，不一定是事件表面本身——例如不是「對方沒有回訊息」，而可能是「沒有被放在心上的感覺」
 - innerPattern：觀察今天是否透露出重複的思考或行為模式，例如：容易預想最壞結果、把安全感綁在別人的反應上、對自己要求過高、很難接受事情失去控制、習慣先照顧別人的感受、容易否定自己的需要——只描述可能的模式，絕對不要下心理疾病或人格診斷
 - reframe：提供一個使用者可能沒有想到、但合理且具體的觀點，幫助重新理解這件事，不是單純的正能量喊話
-- explorationQuestion：不要直接告訴使用者應該怎麼做，而是提出一個根據今天紀錄客製化、值得使用者自己回答的探索性問題，幫助他更理解自己（風格參考：「如果今天沒有人需要你證明自己，你真正想怎麼過這一天？」，但不要套用範例本身，要依今天的內容重新設計）`
-  const raw = await callAi(SYSTEM_PREAMBLE, userText, 3584, DAILY_SCHEMA)
+- explorationQuestion：不要直接告訴使用者應該怎麼做，而是提出一個根據今天紀錄客製化、值得使用者自己回答的探索性問題，幫助他更理解自己（風格參考：「如果今天沒有人需要你證明自己，你真正想怎麼過這一天？」，但不要套用範例本身，要依今天的內容重新設計）
+- suggestions：1-3 個具體、溫和、今天或明天就能嘗試的建議，針對今天的內容客製化，不要講空泛的大道理`
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 4096, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
 

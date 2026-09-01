@@ -240,6 +240,7 @@ const DAILY_STEPS: { key: keyof AiDailyInsight; title: string }[] = [
   { key: 'innerPattern', title: '今天看見的內在模式' },
   { key: 'reframe', title: '換個角度看' },
   { key: 'explorationQuestion', title: '接下來可以怎麼做' },
+  { key: 'suggestions', title: '建議' },
 ]
 
 function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
@@ -247,6 +248,7 @@ function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
     <div className="space-y-2.5">
       {DAILY_STEPS.map((step, i) => {
         const isLast = i === DAILY_STEPS.length - 1
+        const value = insight[step.key]
         return (
           <div
             key={step.key}
@@ -270,7 +272,17 @@ function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
                 {step.title}
               </p>
             </div>
-            <p className="text-sm text-stone-700 leading-relaxed">{insight[step.key]}</p>
+            {Array.isArray(value) ? (
+              <ul className="space-y-1">
+                {value.map((s, j) => (
+                  <li key={j} className="text-sm text-stone-700 leading-relaxed">
+                    · {s}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-stone-700 leading-relaxed">{value}</p>
+            )}
           </div>
         )
       })}
