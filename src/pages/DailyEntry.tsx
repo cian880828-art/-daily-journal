@@ -9,6 +9,7 @@ import { useAiInsight } from '../lib/useAiInsight'
 import { PageHeader } from '../components/PageHeader'
 import { MoodSlider } from '../components/MoodSlider'
 import { EmotionPicker } from '../components/EmotionPicker'
+import { AutoGrowTextarea } from '../components/AutoGrowTextarea'
 
 interface Props {
   journal: ReturnType<typeof useJournalEntries>
@@ -134,7 +135,7 @@ export function DailyEntry({ journal }: Props) {
             <label className="field-label" htmlFor={q.key}>
               {q.label}
             </label>
-            <textarea
+            <AutoGrowTextarea
               id={q.key}
               value={values[q.key]}
               onChange={(e) => setters[q.key](e.target.value)}
