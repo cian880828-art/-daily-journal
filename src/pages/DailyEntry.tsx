@@ -225,10 +225,54 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiDailyInsight>>
       {cached && (
         <div className="space-y-3">
           {stale && <p className="text-xs text-stone-400">內容有更新，這是上次的分析結果</p>}
-          <p className="text-sm text-stone-700 leading-relaxed">{cached.result.reflection}</p>
-          <p className="text-sm text-clay-500 leading-relaxed">💡 {cached.result.suggestion}</p>
+          <AiDailySteps insight={cached.result} />
         </div>
       )}
+    </div>
+  )
+}
+
+const DAILY_STEPS: { key: keyof AiDailyInsight; title: string }[] = [
+  { key: 'whatHappened', title: '發生了什麼事' },
+  { key: 'feelings', title: '你的感受' },
+  { key: 'needs', title: '想要的東西' },
+  { key: 'rootCause', title: '真正的原因' },
+  { key: 'reframe', title: '換個角度看' },
+  { key: 'nextStep', title: '接下來可以怎麼做' },
+]
+
+function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
+  return (
+    <div className="space-y-2.5">
+      {DAILY_STEPS.map((step, i) => {
+        const isLast = i === DAILY_STEPS.length - 1
+        return (
+          <div
+            key={step.key}
+            className={
+              isLast
+                ? 'rounded-2xl border border-clay-300/70 bg-clay-100/60 p-3.5'
+                : 'rounded-2xl bg-white/70 p-3.5'
+            }
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <span
+                className={
+                  isLast
+                    ? 'flex h-5 w-5 items-center justify-center rounded-full bg-clay-400 text-[11px] font-medium text-white'
+                    : 'flex h-5 w-5 items-center justify-center rounded-full bg-stone-200 text-[11px] font-medium text-stone-500'
+                }
+              >
+                {i + 1}
+              </span>
+              <p className={isLast ? 'text-xs font-medium text-clay-600' : 'text-xs font-medium text-stone-500'}>
+                {step.title}
+              </p>
+            </div>
+            <p className="text-sm text-stone-700 leading-relaxed">{insight[step.key]}</p>
+          </div>
+        )
+      })}
     </div>
   )
 }

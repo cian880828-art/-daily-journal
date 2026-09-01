@@ -1,6 +1,10 @@
 export interface AiDailyInsight {
-  reflection: string
-  suggestion: string
+  whatHappened: string
+  feelings: string
+  needs: string
+  rootCause: string
+  reframe: string
+  nextStep: string
 }
 
 export interface AiPromptInsight {
