@@ -6,6 +6,7 @@ import { todayKey } from '../lib/dateUtils'
 import { analyzePrompt } from '../lib/aiClient'
 import { useAiInsight } from '../lib/useAiInsight'
 import type { AiPromptInsight } from '../types/aiInsight'
+import { AutoGrowTextarea } from './AutoGrowTextarea'
 
 /** One self-discovery question per day, picked deterministically from the
  * date (see getDailyPrompt) so it's stable within a day and changes on
@@ -47,7 +48,7 @@ export function DailyPromptCard() {
 
       {editing ? (
         <div className="space-y-3">
-          <textarea
+          <AutoGrowTextarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="想到什麼就寫什麼，不用想太多"
