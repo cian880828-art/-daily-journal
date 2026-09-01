@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { useJournalEntries } from '../lib/useJournalEntries'
 import { buildWeeklyReview } from '../lib/analytics'
-import { formatDateLabel } from '../lib/dateUtils'
+import { formatDateLabel, todayKey } from '../lib/dateUtils'
+import { analyzeWeek, computeFingerprint } from '../lib/aiClient'
+import { useAiInsight } from '../lib/useAiInsight'
+import type { AiWeeklyInsight } from '../types/aiInsight'
 import { PageHeader } from '../components/PageHeader'
 
 interface Props {
@@ -11,6 +15,8 @@ interface Props {
 export function WeeklyReview({ journal }: Props) {
   const { entries } = journal
   const review = buildWeeklyReview(entries)
+  const fingerprint = computeFingerprint(review.days)
+  const ai = useAiInsight<AiWeeklyInsight>(`weekly:${todayKey()}`, fingerprint, () => analyzeWeek(review.days))
 
   return (
     <div>
@@ -20,6 +26,8 @@ export function WeeklyReview({ journal }: Props) {
         <p className="text-xs text-sage-600 font-medium mb-2">本週的我</p>
         <p className="text-stone-700 leading-relaxed">{review.summary}</p>
       </div>
+
+      {review.days.length > 0 && <AiSection ai={ai} />}
 
       {review.days.length === 0 ? (
         <p className="text-stone-400 text-center py-10">這週還沒有紀錄，寫下第一篇看看吧</p>
@@ -93,6 +101,87 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
     <div>
       <p className="text-sm font-medium text-stone-600 mb-2">{title}</p>
       {children}
+    </div>
+  )
+}
+
+function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiWeeklyInsight>> }) {
+  const { cached, stale, loading, error, analyze, apiKeyConfigured } = ai
+
+  if (!apiKeyConfigured) {
+    return (
+      <div className="card mb-6 bg-stone-50/70">
+        <p className="text-sm text-stone-600 mb-2">想要更深入的 AI 情緒分析與建議嗎？</p>
+        <p className="text-xs text-stone-400 mb-3">
+          免費申請一組 Gemini API Key 就能使用，資料只會從你的瀏覽器直接送到 Google。
+        </p>
+        <Link to="/settings" className="btn-secondary inline-flex">
+          前往設定
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card mb-6 bg-clay-100/40 border-clay-200/60">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-clay-500 font-medium">AI 情緒分析與建議</p>
+        {cached && (
+          <button
+            type="button"
+            onClick={analyze}
+            disabled={loading}
+            className="text-xs text-stone-400 underline disabled:opacity-50"
+          >
+            {loading ? '分析中…' : '重新分析'}
+          </button>
+        )}
+      </div>
+
+      {!cached && !loading && (
+        <button type="button" onClick={analyze} className="btn-primary w-full">
+          開始 AI 分析
+        </button>
+      )}
+
+      {loading && !cached && <p className="text-sm text-stone-400 py-2">分析中，請稍候…</p>}
+
+      {error && <p className="text-sm text-clay-500 mt-2">{error}</p>}
+
+      {cached && (
+        <div className="space-y-3">
+          {stale && <p className="text-xs text-stone-400">紀錄有更新，這是上次的分析結果</p>}
+          <p className="text-sm text-stone-700 leading-relaxed">{cached.result.emotionAnalysis}</p>
+
+          {cached.result.stressors.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-stone-500 mb-1.5">可能的壓力來源</p>
+              <ul className="space-y-1">
+                {cached.result.stressors.map((s, i) => (
+                  <li key={i} className="text-sm text-stone-600 leading-relaxed">
+                    · {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {cached.result.suggestions.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-stone-500 mb-1.5">建議</p>
+              <ul className="space-y-1">
+                {cached.result.suggestions.map((s, i) => (
+                  <li key={i} className="text-sm text-stone-600 leading-relaxed">
+                    · {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="text-sm text-clay-500 italic">{cached.result.encouragement}</p>
+        </div>
+      )}
     </div>
   )
 }

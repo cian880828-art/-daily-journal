@@ -1,20 +1,16 @@
 /** Client-side "bring your own key" settings for the optional AI analysis
- * feature. The key never leaves the browser except in direct requests the
- * browser itself makes to Anthropic's API — there is no backend to proxy
- * or log it. See src/lib/aiClient.ts for how it's used. */
+ * feature, backed by Google's Gemini API free tier. The key never leaves
+ * the browser except in direct requests the browser itself makes to
+ * Google — there is no backend to proxy or log it. See
+ * src/lib/aiClient.ts for how it's used. */
 
-const API_KEY_STORAGE_KEY = 'daily-journal:ai:api-key'
-const MODEL_STORAGE_KEY = 'daily-journal:ai:model'
+const API_KEY_STORAGE_KEY = 'daily-journal:ai:gemini-api-key'
+const MODEL_STORAGE_KEY = 'daily-journal:ai:gemini-model'
 
-export const AI_MODELS = [
-  { id: 'claude-opus-5', label: 'Claude Opus 5', hint: '分析品質最佳，費用也最高' },
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', hint: '品質與費用平衡' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', hint: '最省費用，適合輕量分析' },
-] as const
-
-export type AiModelId = (typeof AI_MODELS)[number]['id']
-
-const DEFAULT_MODEL: AiModelId = 'claude-opus-5'
+// A safe, widely-available free-tier default. Users can override this in
+// Settings if Google renames/retires it — see the model input's helper
+// text — without needing a code change.
+export const DEFAULT_MODEL = 'gemini-2.5-flash'
 
 export function getApiKey(): string {
   try {
@@ -37,16 +33,21 @@ export function hasApiKey(): boolean {
   return getApiKey().length > 0
 }
 
-export function getModel(): AiModelId {
+export function getModel(): string {
   try {
     const stored = localStorage.getItem(MODEL_STORAGE_KEY)
-    if (stored && AI_MODELS.some((m) => m.id === stored)) return stored as AiModelId
+    if (stored && stored.trim()) return stored.trim()
   } catch {
     // fall through to default
   }
   return DEFAULT_MODEL
 }
 
-export function setModel(model: AiModelId): void {
-  localStorage.setItem(MODEL_STORAGE_KEY, model)
+export function setModel(model: string): void {
+  const trimmed = model.trim()
+  if (trimmed) {
+    localStorage.setItem(MODEL_STORAGE_KEY, trimmed)
+  } else {
+    localStorage.removeItem(MODEL_STORAGE_KEY)
+  }
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Bar,
   BarChart,
@@ -12,6 +13,9 @@ import {
 } from 'recharts'
 import type { useJournalEntries } from '../lib/useJournalEntries'
 import { buildMonthlyInsights } from '../lib/analytics'
+import { analyzeMonth, computeFingerprint } from '../lib/aiClient'
+import { useAiInsight } from '../lib/useAiInsight'
+import type { AiMonthlyInsight } from '../types/aiInsight'
 import { PageHeader } from '../components/PageHeader'
 
 interface Props {
@@ -32,6 +36,12 @@ export function Insights({ journal }: Props) {
   const insights = useMemo(() => buildMonthlyInsights(entries, cursor), [entries, cursor])
   const isCurrentMonth =
     cursor.getFullYear() === new Date().getFullYear() && cursor.getMonth() === new Date().getMonth()
+
+  const monthKey = `${cursor.getFullYear()}-${cursor.getMonth() + 1}`
+  const fingerprint = computeFingerprint(insights.entries)
+  const ai = useAiInsight<AiMonthlyInsight>(`monthly:${monthKey}`, fingerprint, () =>
+    analyzeMonth(insights.entries),
+  )
 
   return (
     <div>
@@ -63,6 +73,8 @@ export function Insights({ journal }: Props) {
       ) : (
         <div className="space-y-8">
           <TextInsights insights={insights} />
+
+          <AiSection ai={ai} />
 
           <ChartCard title="每日心情">
             <ResponsiveContainer width="100%" height={180}>
@@ -111,6 +123,89 @@ export function Insights({ journal }: Props) {
               </ResponsiveContainer>
             </ChartCard>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiMonthlyInsight>> }) {
+  const { cached, stale, loading, error, analyze, apiKeyConfigured } = ai
+
+  if (!apiKeyConfigured) {
+    return (
+      <div className="card bg-stone-50/70">
+        <p className="text-sm text-stone-600 mb-2">想要更深入的 AI 情緒分析與建議嗎？</p>
+        <p className="text-xs text-stone-400 mb-3">
+          免費申請一組 Gemini API Key 就能使用，資料只會從你的瀏覽器直接送到 Google。
+        </p>
+        <Link to="/settings" className="btn-secondary inline-flex">
+          前往設定
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card bg-clay-100/40 border-clay-200/60">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-clay-500 font-medium">AI 情緒分析與建議</p>
+        {cached && (
+          <button
+            type="button"
+            onClick={analyze}
+            disabled={loading}
+            className="text-xs text-stone-400 underline disabled:opacity-50"
+          >
+            {loading ? '分析中…' : '重新分析'}
+          </button>
+        )}
+      </div>
+
+      {!cached && !loading && (
+        <button type="button" onClick={analyze} className="btn-primary w-full">
+          開始 AI 分析
+        </button>
+      )}
+
+      {loading && !cached && <p className="text-sm text-stone-400 py-2">分析中，請稍候…</p>}
+
+      {error && <p className="text-sm text-clay-500 mt-2">{error}</p>}
+
+      {cached && (
+        <div className="space-y-3">
+          {stale && <p className="text-xs text-stone-400">紀錄有更新，這是上次的分析結果</p>}
+          <p className="text-sm text-stone-700 leading-relaxed">{cached.result.emotionAnalysis}</p>
+
+          <div>
+            <p className="text-xs font-medium text-stone-500 mb-1">什麼最容易讓你開心</p>
+            <p className="text-sm text-stone-600 leading-relaxed">{cached.result.happyPatterns}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-stone-500 mb-1">什麼最容易讓你焦慮</p>
+            <p className="text-sm text-stone-600 leading-relaxed">{cached.result.anxietyPatterns}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-stone-500 mb-1">最近的趨勢</p>
+            <p className="text-sm text-stone-600 leading-relaxed">{cached.result.trend}</p>
+          </div>
+
+          {cached.result.suggestions.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-stone-500 mb-1.5">建議</p>
+              <ul className="space-y-1">
+                {cached.result.suggestions.map((s, i) => (
+                  <li key={i} className="text-sm text-stone-600 leading-relaxed">
+                    · {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="text-sm text-clay-500 italic">{cached.result.encouragement}</p>
         </div>
       )}
     </div>

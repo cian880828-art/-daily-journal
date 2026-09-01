@@ -18,8 +18,13 @@
 - **月度 Insights**：每日心情折線圖、情緒出現次數長條圖、每週平均心情，加上
   幾個簡單問題的文字回答（什麼讓我開心／焦慮、低潮通常在哪天、最近趨勢是
   變好還是變差）。
+- **AI 情緒分析與建議（選用、免費）**：在「每週回顧」「Insights」頁面按下
+  「AI 分析」，會用 Google Gemini API 的免費額度，針對該週／該月的紀錄產生
+  情緒分析、可能的壓力來源、具體建議與一句鼓勵的話。完全選用——不設定
+  API Key 也不影響其他任何功能，仍會顯示免費的關鍵字式分析。
 
-第一版不串接 AI，用關鍵字比對、情緒標籤與紀錄內容做整理與呈現。
+不設定 AI 的話，全部功能都用關鍵字比對、情緒標籤與紀錄內容做整理與呈現，
+不需要網路、不需要任何帳號。
 
 ## 技術
 
@@ -29,20 +34,38 @@
 - 資料層以 `JournalRepository` 介面封裝（見 `src/lib/journalRepository.ts`），
   之後要換成 Supabase 或其他後端，只需要新增一個實作並替換 `journalRepo`
   這個 singleton，其餘頁面與元件完全不需要改動。
+- AI 分析採「自備 API Key」（BYOK）模式：Key 存在瀏覽器 localStorage，分析時
+  直接從瀏覽器呼叫 Gemini API，沒有後端、沒有伺服器會經手你的日記內容。
 
 ### 專案結構
 
 ```
 src/
-  types/journal.ts        # JournalEntry 型別、情緒清單
+  types/
+    journal.ts             # JournalEntry 型別、情緒清單
+    aiInsight.ts            # AI 分析結果型別
   lib/
-    journalRepository.ts  # 資料存取介面 + localStorage 實作
-    useJournalEntries.ts  # 讀寫資料的 React hook
-    dateUtils.ts          # 日期／連續天數工具
-    analytics.ts          # 週回顧、月度 Insights、關鍵字擷取邏輯
-  components/              # EmotionPicker、MoodSlider、BottomNav 等共用元件
-  pages/                   # Home、DailyEntry、History、WeeklyReview、Insights
+    journalRepository.ts    # 資料存取介面 + localStorage 實作
+    useJournalEntries.ts     # 讀寫資料的 React hook
+    dateUtils.ts             # 日期／連續天數工具
+    analytics.ts             # 週回顧、月度 Insights、關鍵字擷取邏輯
+    aiSettings.ts            # AI Key / 模型設定（localStorage）
+    aiClient.ts              # 呼叫 Gemini API、prompt、JSON 解析
+    useAiInsight.ts           # AI 分析結果的 on-demand 呼叫 + 快取 hook
+  components/                # EmotionPicker、MoodSlider、BottomNav 等共用元件
+  pages/                     # Home、DailyEntry、History、WeeklyReview、Insights、Settings
 ```
+
+### 關於 AI 分析功能
+
+- 到 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 免費申請一組
+  Gemini API Key（不需要信用卡），貼到 App 的「設定」頁（首頁右上角齒輪圖示）。
+- 免費額度有速率限制（依模型而異，通常每分鐘 10～30 次請求），一般個人每週
+  按一兩次分析完全足夠。
+- 分析只在你按下「開始 AI 分析」時才會呼叫一次，結果會快取起來，資料沒變的
+  話重新整理頁面不會重複呼叫。
+- 如果 Google 之後調整了免費模型的名稱，可以直接在設定頁把模型名稱改成新的，
+  不需要更新程式碼（預設 `gemini-2.5-flash`）。
 
 ## 本機啟動方式
 
