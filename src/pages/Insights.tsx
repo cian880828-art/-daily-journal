@@ -256,7 +256,11 @@ function TextInsights({ insights }: { insights: ReturnType<typeof buildMonthlyIn
   if (insights.gratefulKeywords.length > 0) {
     lines.push(`我最常感謝的人事物？　${insights.gratefulKeywords.map((k) => k.keyword).join('、')}`)
   }
-  if (insights.lowMoodWeekdays.length > 0) {
+  // "通常" implies a real pattern — with only a couple of entries this
+  // month, one low-mood day isn't a weekday pattern yet, it's just that
+  // one day. Wait for enough data before claiming one (same spirit as
+  // the trend line below).
+  if (insights.entries.length >= 7 && insights.lowMoodWeekdays.length > 0) {
     lines.push(`低心情通常出現在？　${insights.lowMoodWeekdays.slice(0, 2).map((w) => w.weekday).join('、')}`)
   }
 
