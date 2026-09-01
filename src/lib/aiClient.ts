@@ -50,13 +50,14 @@ async function callGemini(
           // actually fixed the "AI 回覆格式異常" failures; describing
           // the shape in the prompt alone was not reliable enough.
           responseSchema,
-          // This is a template-filling task, not something that benefits
-          // from reasoning — and on thinking-capable models (e.g.
-          // gemini-3.6-flash), leaving it on burns the token budget on
-          // "thought" parts before any real answer, which both wastes
-          // free-tier quota and can starve maxOutputTokens entirely.
-          // Harmless no-op on models that ignore the field.
-          thinkingConfig: { thinkingBudget: 0 },
+          // Deliberately no thinkingConfig here: the field name/shape
+          // for disabling thinking isn't consistent across Gemini model
+          // generations (thinkingBudget vs thinkingLevel), and sending
+          // one a given model doesn't recognize gets the whole request
+          // rejected with a 400 "invalid argument" — worse than just
+          // leaving thinking on. The thought-part filtering below plus
+          // responseSchema are enough to get a reliably parseable answer
+          // either way.
         },
       }),
     })
