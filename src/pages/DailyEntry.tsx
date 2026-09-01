@@ -239,7 +239,7 @@ const DAILY_STEPS: { key: keyof AiDailyInsight; title: string }[] = [
   { key: 'coreWound', title: '真正刺痛你的地方' },
   { key: 'innerPattern', title: '今天看見的內在模式' },
   { key: 'reframe', title: '換個角度看' },
-  { key: 'explorationQuestion', title: '接下來可以怎麼做' },
+  { key: 'explorationQuestion', title: '值得思考' },
   { key: 'suggestions', title: '建議' },
 ]
 
