@@ -1,5 +1,9 @@
 const CACHE_NAME = 'daily-journal-cache-v1'
-const CORE_ASSETS = ['/', '/manifest.webmanifest', '/journal.svg']
+// Relative to the service worker's own scope, not the domain root — this
+// app can be hosted at "/" (local dev) or under a subpath like
+// "/-daily-journal/" (GitHub Pages project page).
+const SCOPE = self.registration.scope
+const CORE_ASSETS = [SCOPE, `${SCOPE}manifest.webmanifest`, `${SCOPE}journal.svg`]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,7 +35,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
           return res
         })
-        .catch(() => caches.match(request).then((res) => res || caches.match('/'))),
+        .catch(() => caches.match(request).then((res) => res || caches.match(SCOPE))),
     )
     return
   }
