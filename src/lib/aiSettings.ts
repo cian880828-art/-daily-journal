@@ -26,7 +26,7 @@ const MODEL_STORAGE_KEYS: Record<AiProvider, string> = {
 // Google's replacement is gemini-3.6-flash.)
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
   gemini: 'gemini-3.6-flash',
-  groq: 'llama-3.3-70b-versatile',
+  groq: 'openai/gpt-oss-20b',
 }
 export const DEFAULT_MODEL = DEFAULT_MODELS.gemini
 
