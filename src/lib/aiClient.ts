@@ -322,13 +322,13 @@ export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
 
 ${serializeEntries([entry])}
 
-請根據這篇紀錄，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文，每項 1-2 句話），依序拆解：
-- whatHappened：客觀摘要今天發生的事，只根據紀錄內容，不要腦補
-- feelings：描述使用者當下比較深層的情緒感受，不只是重複心情分數
+如果紀錄裡有寫「難過、不舒服或煩躁的事」，請把下面每一項都聚焦在那件事上分析；如果那項是空的，才根據今天整體紀錄分析。用像貼心朋友的語氣（不要說教，字串內容一律繁體中文，每項 1-2 句話），依序拆解：
+- whatHappened：客觀摘要那件難過/不舒服的事（或沒有的話，今天整體發生的事），只根據紀錄內容，不要腦補
+- feelings：描述使用者面對這件事當下比較深層的情緒感受，不只是重複心情分數
 - needs：心情不好或不舒服時，通常代表有什麼願望、需求沒有被好好接住
-- rootCause：感受背後比較真正的原因是什麼，感受已經到了，原因可能還沒說出口
-- reframe：換個角度看這件事，溫和地重新框定，不用勉強樂觀
-- nextStep：1 個具體、溫和、今天或明天就能做的小行動`
+- rootCause：這個難過/不舒服背後比較真正的原因是什麼，感受已經到了，原因可能還沒說出口
+- reframe：針對這件讓使用者難過的事，換個角度看，溫和地重新框定，不用勉強樂觀
+- nextStep：針對這件事，1 個具體、溫和、今天或明天就能做的小行動`
   const raw = await callAi(SYSTEM_PREAMBLE, userText, 1536, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
