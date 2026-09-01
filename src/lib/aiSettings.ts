@@ -9,8 +9,10 @@ const MODEL_STORAGE_KEY = 'daily-journal:ai:gemini-model'
 
 // A safe, widely-available free-tier default. Users can override this in
 // Settings if Google renames/retires it — see the model input's helper
-// text — without needing a code change.
-export const DEFAULT_MODEL = 'gemini-2.5-flash'
+// text — without needing a code change. (Previously gemini-2.5-flash,
+// retired for new callers as of 2026; Google's replacement is
+// gemini-3.6-flash.)
+export const DEFAULT_MODEL = 'gemini-3.6-flash'
 
 export function getApiKey(): string {
   try {
