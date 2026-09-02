@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { useJournalEntries } from '../lib/useJournalEntries'
 import type { Emotion } from '../types/journal'
@@ -6,6 +6,7 @@ import type { AiDailyInsight } from '../types/aiInsight'
 import { todayKey } from '../lib/dateUtils'
 import { analyzeDay, computeFingerprint } from '../lib/aiClient'
 import { useAiInsight } from '../lib/useAiInsight'
+import { getDraft, saveDraft, clearDraft } from '../lib/entryDraft'
 import { PageHeader } from '../components/PageHeader'
 import { MoodSlider } from '../components/MoodSlider'
 import { EmotionPicker } from '../components/EmotionPicker'
@@ -38,6 +39,12 @@ export function DailyEntry({ journal }: Props) {
   const [emotions, setEmotions] = useState<Emotion[]>([])
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+  const [autosaved, setAutosaved] = useState(false)
+  // Guards the auto-save effect from firing with stale/blank state while a
+  // date's data is still being populated (initial mount, date switch, or the
+  // entries list loading in from the cloud).
+  const loadedDateRef = useRef<string | null>(null)
 
   const existingEntry = entries.find((e) => e.date === date)
   const isEditingExisting = existingEntry !== undefined
@@ -45,43 +52,44 @@ export function DailyEntry({ journal }: Props) {
   const aiFingerprint = existingEntry ? computeFingerprint([existingEntry]) : ''
   const ai = useAiInsight<AiDailyInsight>(`daily:${date}`, aiFingerprint, () => analyzeDay(existingEntry!))
 
+  function applyEntryData(targetDate: string) {
+    const draft = getDraft(targetDate)
+    const existing = entries.find((e) => e.date === targetDate)
+    const source = draft ?? existing ?? null
+    setHappy(source?.happy ?? '')
+    setUpset(source?.upset ?? '')
+    setGrateful(source?.grateful ?? '')
+    setProudOf(source?.proudOf ?? '')
+    setNoteToSelf(source?.noteToSelf ?? '')
+    setMood(source?.mood ?? 6)
+    setEmotions(source?.emotions ?? [])
+    setDraftRestored(draft !== null)
+    loadedDateRef.current = targetDate
+  }
+
   useEffect(() => {
     const targetDate = dateParam ?? todayKey()
     setDate(targetDate)
-    const existing = entries.find((e) => e.date === targetDate)
-    if (existing) {
-      setHappy(existing.happy)
-      setUpset(existing.upset)
-      setGrateful(existing.grateful)
-      setProudOf(existing.proudOf)
-      setNoteToSelf(existing.noteToSelf)
-      setMood(existing.mood)
-      setEmotions(existing.emotions)
-    }
+    applyEntryData(targetDate)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateParam, entries.length])
 
   function handleDateChange(next: string) {
     setDate(next)
-    const existing = entries.find((e) => e.date === next)
-    if (existing) {
-      setHappy(existing.happy)
-      setUpset(existing.upset)
-      setGrateful(existing.grateful)
-      setProudOf(existing.proudOf)
-      setNoteToSelf(existing.noteToSelf)
-      setMood(existing.mood)
-      setEmotions(existing.emotions)
-    } else {
-      setHappy('')
-      setUpset('')
-      setGrateful('')
-      setProudOf('')
-      setNoteToSelf('')
-      setMood(6)
-      setEmotions([])
-    }
+    applyEntryData(next)
   }
+
+  // Auto-save a local draft of unsaved edits, debounced, so a reload or
+  // accidental navigation away doesn't lose what was typed.
+  useEffect(() => {
+    if (loadedDateRef.current !== date) return
+    const timer = setTimeout(() => {
+      saveDraft(date, { happy, upset, grateful, proudOf, noteToSelf, mood, emotions })
+      setAutosaved(true)
+      setTimeout(() => setAutosaved(false), 1500)
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [date, happy, upset, grateful, proudOf, noteToSelf, mood, emotions])
 
   const values: Record<(typeof QUESTIONS)[number]['key'], string> = {
     happy,
@@ -101,6 +109,8 @@ export function DailyEntry({ journal }: Props) {
   async function handleSave() {
     setSaving(true)
     await save({ date, happy, upset, grateful, proudOf, noteToSelf, mood, emotions })
+    clearDraft(date)
+    setDraftRestored(false)
     setSaving(false)
     setJustSaved(true)
     setTimeout(() => navigate('/'), 650)
@@ -127,6 +137,9 @@ export function DailyEntry({ journal }: Props) {
           className="w-full rounded-2xl border border-stone-200 bg-white/80 px-4 py-3 text-[15px] text-ink
             focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300"
         />
+        {draftRestored && (
+          <p className="text-xs text-stone-400 mt-2">已自動還原上次未儲存的內容</p>
+        )}
       </div>
 
       <div className="space-y-6">
@@ -168,6 +181,9 @@ export function DailyEntry({ journal }: Props) {
         >
           {justSaved ? '已儲存 ♡' : saving ? '儲存中…' : '儲存今天的紀錄'}
         </button>
+        {autosaved && !saving && !justSaved && (
+          <p className="text-xs text-stone-400 text-center mt-2">已自動暫存草稿</p>
+        )}
       </div>
 
       {existingEntry && (
