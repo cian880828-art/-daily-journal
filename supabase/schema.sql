@@ -72,3 +72,37 @@ drop policy if exists "delete own prompt answers" on prompt_answers;
 create policy "delete own prompt answers"
   on prompt_answers for delete
   using (auth.uid() = user_id);
+
+-- One row per user — the AI provider/key/model chosen in Settings,
+-- synced across devices on the same account.
+create table if not exists ai_settings (
+  user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
+  provider text not null default 'gemini',
+  gemini_api_key text not null default '',
+  gemini_model text not null default '',
+  groq_api_key text not null default '',
+  groq_model text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table ai_settings enable row level security;
+
+drop policy if exists "select own ai settings" on ai_settings;
+create policy "select own ai settings"
+  on ai_settings for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "insert own ai settings" on ai_settings;
+create policy "insert own ai settings"
+  on ai_settings for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "update own ai settings" on ai_settings;
+create policy "update own ai settings"
+  on ai_settings for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "delete own ai settings" on ai_settings;
+create policy "delete own ai settings"
+  on ai_settings for delete
+  using (auth.uid() = user_id);

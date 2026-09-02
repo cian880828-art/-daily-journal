@@ -12,6 +12,7 @@ import {
 } from '../lib/aiSettings'
 import { testConnection } from '../lib/aiClient'
 import { exportBackup, importBackup } from '../lib/backup'
+import { saveAiSettingsToCloud } from '../lib/supabaseAiSettings'
 import { useAuth } from '../lib/useAuth'
 
 const PROVIDERS: { id: AiProvider; label: string }[] = [
@@ -75,6 +76,7 @@ export function Settings() {
     setSaved(true)
     setTestState('idle')
     setTimeout(() => setSaved(false), 1800)
+    saveAiSettingsToCloud().catch((err) => console.error('[daily-journal] AI settings cloud sync failed:', err))
   }
 
   async function handleTest() {

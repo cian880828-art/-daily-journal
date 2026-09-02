@@ -4,6 +4,7 @@ import { BottomNav } from './components/BottomNav'
 import { useJournalEntries } from './lib/useJournalEntries'
 import { useAuth } from './lib/useAuth'
 import { migrateLocalDataToCloud } from './lib/migrateLocalData'
+import { syncAiSettingsFromCloud } from './lib/supabaseAiSettings'
 import { Home } from './pages/Home'
 import { DailyEntry } from './pages/DailyEntry'
 import { History } from './pages/History'
@@ -20,7 +21,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return
     setMigrating(true)
-    migrateLocalDataToCloud(user.id)
+    Promise.all([
+      migrateLocalDataToCloud(user.id),
+      syncAiSettingsFromCloud().catch((err) => console.error('[daily-journal] AI settings sync failed:', err)),
+    ])
       .catch((err) => console.error('[daily-journal] local data migration failed:', err))
       .finally(() => setMigrating(false))
   }, [user])
