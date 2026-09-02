@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JournalEntry, JournalEntryDraft } from '../types/journal'
-import { journalRepo } from './journalRepository'
+import { supabaseJournalRepo as journalRepo } from './supabaseJournalRepository'
 
 /**
  * Loads all entries from the repository and exposes a `refresh` +

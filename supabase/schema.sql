@@ -1,0 +1,74 @@
+-- Run this once in the Supabase project's SQL Editor (left sidebar icon
+-- that looks like a terminal/">_") to set up the tables this app needs.
+-- Safe to re-run: each statement either creates something that doesn't
+-- exist yet or is a no-op if it already does.
+
+create table if not exists journal_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  date date not null,
+  happy text not null default '',
+  upset text not null default '',
+  grateful text not null default '',
+  proud_of text not null default '',
+  note_to_self text not null default '',
+  mood int not null,
+  emotions text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, date)
+);
+
+alter table journal_entries enable row level security;
+
+drop policy if exists "select own journal entries" on journal_entries;
+create policy "select own journal entries"
+  on journal_entries for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "insert own journal entries" on journal_entries;
+create policy "insert own journal entries"
+  on journal_entries for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "update own journal entries" on journal_entries;
+create policy "update own journal entries"
+  on journal_entries for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "delete own journal entries" on journal_entries;
+create policy "delete own journal entries"
+  on journal_entries for delete
+  using (auth.uid() = user_id);
+
+create table if not exists prompt_answers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  date date not null,
+  question text not null,
+  answer text not null,
+  updated_at timestamptz not null default now(),
+  unique (user_id, date)
+);
+
+alter table prompt_answers enable row level security;
+
+drop policy if exists "select own prompt answers" on prompt_answers;
+create policy "select own prompt answers"
+  on prompt_answers for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "insert own prompt answers" on prompt_answers;
+create policy "insert own prompt answers"
+  on prompt_answers for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "update own prompt answers" on prompt_answers;
+create policy "update own prompt answers"
+  on prompt_answers for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "delete own prompt answers" on prompt_answers;
+create policy "delete own prompt answers"
+  on prompt_answers for delete
+  using (auth.uid() = user_id);

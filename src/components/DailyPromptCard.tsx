@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getDailyPrompt } from '../lib/dailyPrompts'
-import { getPromptAnswer, savePromptAnswer, type PromptAnswer } from '../lib/promptAnswers'
+import { getPromptAnswer, savePromptAnswer } from '../lib/supabasePromptAnswers'
+import type { PromptAnswer } from '../lib/promptAnswers'
 import { todayKey } from '../lib/dateUtils'
 import { analyzePrompt } from '../lib/aiClient'
 import { useAiInsight } from '../lib/useAiInsight'
@@ -15,14 +16,20 @@ export function DailyPromptCard() {
   const date = todayKey()
   const question = getDailyPrompt(date)
 
-  const [saved, setSaved] = useState<PromptAnswer | undefined>(() => getPromptAnswer(date))
+  const [saved, setSaved] = useState<PromptAnswer | undefined>(undefined)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    setSaved(getPromptAnswer(date))
+    let cancelled = false
+    getPromptAnswer(date).then((answer) => {
+      if (!cancelled) setSaved(answer)
+    })
     setEditing(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true
+    }
   }, [date])
 
   const fingerprint = saved ? `${saved.date}:${saved.updatedAt}` : ''
@@ -35,10 +42,13 @@ export function DailyPromptCard() {
     setEditing(true)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!draft.trim()) return
-    setSaved(savePromptAnswer(date, question, draft.trim()))
+    setSaving(true)
+    const answer = await savePromptAnswer(date, question, draft.trim())
+    setSaved(answer)
     setEditing(false)
+    setSaving(false)
   }
 
   return (
@@ -57,8 +67,8 @@ export function DailyPromptCard() {
             autoFocus
           />
           <div className="flex gap-2">
-            <button type="button" onClick={handleSave} className="btn-primary flex-1">
-              儲存
+            <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+              {saving ? '儲存中…' : '儲存'}
             </button>
             <button type="button" onClick={() => setEditing(false)} className="btn-secondary">
               取消

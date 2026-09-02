@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { BottomNav } from './components/BottomNav'
 import { useJournalEntries } from './lib/useJournalEntries'
+import { useAuth } from './lib/useAuth'
+import { migrateLocalDataToCloud } from './lib/migrateLocalData'
 import { Home } from './pages/Home'
 import { DailyEntry } from './pages/DailyEntry'
 import { History } from './pages/History'
@@ -8,8 +11,32 @@ import { WeeklyReview } from './pages/WeeklyReview'
 import { Insights } from './pages/Insights'
 import { Reflections } from './pages/Reflections'
 import { Settings } from './pages/Settings'
+import { Login } from './pages/Login'
 
 export default function App() {
+  const { user, loading: authLoading, signInWithGoogle } = useAuth()
+  const [migrating, setMigrating] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    setMigrating(true)
+    migrateLocalDataToCloud(user.id)
+      .catch((err) => console.error('[daily-journal] local data migration failed:', err))
+      .finally(() => setMigrating(false))
+  }, [user])
+
+  if (authLoading || migrating) {
+    return <div className="min-h-screen bg-paper" />
+  }
+
+  if (!user) {
+    return <Login onSignIn={signInWithGoogle} />
+  }
+
+  return <AuthenticatedApp />
+}
+
+function AuthenticatedApp() {
   const journal = useJournalEntries()
   const location = useLocation()
   // The entry form is long (7 fields + mood + emotions + AI section) and

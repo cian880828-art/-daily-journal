@@ -12,6 +12,7 @@ import {
 } from '../lib/aiSettings'
 import { testConnection } from '../lib/aiClient'
 import { exportBackup, importBackup } from '../lib/backup'
+import { useAuth } from '../lib/useAuth'
 
 const PROVIDERS: { id: AiProvider; label: string }[] = [
   { id: 'gemini', label: 'Google Gemini' },
@@ -19,6 +20,7 @@ const PROVIDERS: { id: AiProvider; label: string }[] = [
 ]
 
 export function Settings() {
+  const { user, signOut } = useAuth()
   const [provider, setProviderInput] = useState<AiProvider>(getProvider())
   const [apiKey, setApiKeyInput] = useState(getApiKey(provider))
   const [model, setModelInput] = useState(getModel(provider))
@@ -79,6 +81,16 @@ export function Settings() {
   return (
     <div>
       <PageHeader title="設定" subtitle="AI 分析功能（選用、免費）" back />
+
+      <div className="card mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs text-stone-400 mb-0.5">已登入</p>
+          <p className="text-sm text-stone-700">{user?.email}</p>
+        </div>
+        <button type="button" onClick={() => signOut()} className="btn-secondary">
+          登出
+        </button>
+      </div>
 
       <div className="mb-6">
         <label className="field-label">AI 服務</label>
