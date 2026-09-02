@@ -6,6 +6,6 @@ import { createClient } from '@supabase/supabase-js'
  * secret/service-role key is never used here and must never be committed
  * to this repo (it's public). */
 const SUPABASE_URL = 'https://dolevmbukbpzbwdtmoan.supabase.co'
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XZ_9thL1ODYnfdtKGBOcVA_LmZQg'
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XZ_9thL1ODYnfdtKGBOcVA_LmZQgol5'
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
