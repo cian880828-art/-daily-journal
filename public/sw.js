@@ -61,3 +61,36 @@ self.addEventListener('fetch', (event) => {
     ),
   )
 })
+
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { body: event.data ? event.data.text() : '' }
+  }
+
+  const title = data.title || '該寫日記了'
+  const options = {
+    body: data.body || '花 2-5 分鐘，寫下今天的心情',
+    icon: `${SCOPE}journal.svg`,
+    badge: `${SCOPE}journal.svg`,
+    data: { url: data.url || SCOPE },
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// Focuses an already-open tab on this app instead of always opening a new
+// one, so tapping the notification doesn't pile up duplicate tabs/windows.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const targetUrl = event.notification.data?.url || SCOPE
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.startsWith(SCOPE) && 'focus' in client) return client.focus()
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl)
+    }),
+  )
+})

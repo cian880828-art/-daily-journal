@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import {
   DEFAULT_MODELS,
@@ -13,6 +13,7 @@ import {
 import { testConnection } from '../lib/aiClient'
 import { exportBackup, importBackup } from '../lib/backup'
 import { saveAiSettingsToCloud } from '../lib/supabaseAiSettings'
+import { disableReminders, enableReminders, getCurrentSubscription, isPushSupported } from '../lib/pushNotifications'
 import { useAuth } from '../lib/useAuth'
 
 const PROVIDERS: { id: AiProvider; label: string }[] = [
@@ -33,6 +34,43 @@ export function Settings() {
   const [exportState, setExportState] = useState<'idle' | 'exporting' | 'error'>('idle')
   const [exportMessage, setExportMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [reminderState, setReminderState] = useState<'checking' | 'on' | 'off' | 'unsupported' | 'busy'>('checking')
+  const [reminderError, setReminderError] = useState('')
+
+  useEffect(() => {
+    if (!isPushSupported()) {
+      setReminderState('unsupported')
+      return
+    }
+    getCurrentSubscription()
+      .then((sub) => setReminderState(sub ? 'on' : 'off'))
+      .catch(() => setReminderState('off'))
+  }, [])
+
+  async function handleEnableReminders() {
+    setReminderState('busy')
+    setReminderError('')
+    try {
+      await enableReminders()
+      setReminderState('on')
+    } catch (err) {
+      setReminderState('off')
+      setReminderError(err instanceof Error ? err.message : '開啟失敗，請再試一次。')
+    }
+  }
+
+  async function handleDisableReminders() {
+    setReminderState('busy')
+    setReminderError('')
+    try {
+      await disableReminders()
+      setReminderState('off')
+    } catch (err) {
+      setReminderState('on')
+      setReminderError(err instanceof Error ? err.message : '關閉失敗，請再試一次。')
+    }
+  }
 
   async function handleExport() {
     setExportState('exporting')
@@ -209,6 +247,34 @@ export function Settings() {
           也完全不影響其他功能，仍會顯示免費的關鍵字式分析。這是你的個人紀錄，請自行評估是否要將內容送到第三方 API
           分析。切換 AI 服務不會刪除另一個服務已經存的 Key 和模型設定。
         </p>
+      </div>
+
+      <h2 className="text-sm font-medium text-stone-600 mb-3">提醒通知</h2>
+      <div className="card mb-6 space-y-3">
+        <p className="text-xs text-stone-400 leading-relaxed">
+          開啟後，每天晚上 8:30 如果還沒寫今天的紀錄會提醒一次；9 點之後如果還是沒寫，每 30 分鐘再提醒一次，寫了之後就不會再收到。iPhone
+          需要先「加入主畫面」，用主畫面圖示打開才支援推播通知。
+        </p>
+        {reminderState === 'unsupported' && (
+          <p className="text-sm text-stone-400">這個瀏覽器不支援推播通知。</p>
+        )}
+        {reminderState !== 'unsupported' && (
+          <button
+            type="button"
+            onClick={reminderState === 'on' ? handleDisableReminders : handleEnableReminders}
+            disabled={reminderState === 'checking' || reminderState === 'busy'}
+            className={reminderState === 'on' ? 'btn-secondary w-full' : 'btn-primary w-full'}
+          >
+            {reminderState === 'checking'
+              ? '確認中…'
+              : reminderState === 'busy'
+                ? '處理中…'
+                : reminderState === 'on'
+                  ? '已開啟，關閉提醒通知'
+                  : '開啟提醒通知'}
+          </button>
+        )}
+        {reminderError && <p className="text-sm text-clay-500">{reminderError}</p>}
       </div>
 
       <h2 className="text-sm font-medium text-stone-600 mb-3">資料備份</h2>

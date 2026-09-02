@@ -106,3 +106,40 @@ drop policy if exists "delete own ai settings" on ai_settings;
 create policy "delete own ai settings"
   on ai_settings for delete
   using (auth.uid() = user_id);
+
+-- One row per device/browser subscribed to reminder push notifications.
+-- Read by the send-reminders Edge Function using the service-role key
+-- (server-side, bypasses RLS) — the RLS policies below only govern what
+-- the signed-in user's own browser can read/write directly.
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth_key text not null,
+  timezone text not null default 'Asia/Taipei',
+  created_at timestamptz not null default now(),
+  unique (user_id, endpoint)
+);
+
+alter table push_subscriptions enable row level security;
+
+drop policy if exists "select own push subscriptions" on push_subscriptions;
+create policy "select own push subscriptions"
+  on push_subscriptions for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "insert own push subscriptions" on push_subscriptions;
+create policy "insert own push subscriptions"
+  on push_subscriptions for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "update own push subscriptions" on push_subscriptions;
+create policy "update own push subscriptions"
+  on push_subscriptions for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "delete own push subscriptions" on push_subscriptions;
+create policy "delete own push subscriptions"
+  on push_subscriptions for delete
+  using (auth.uid() = user_id);
