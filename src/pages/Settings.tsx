@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import {
   DEFAULT_MODELS,
@@ -11,6 +11,7 @@ import {
   setProvider,
 } from '../lib/aiSettings'
 import { testConnection } from '../lib/aiClient'
+import { exportBackup, importBackup } from '../lib/backup'
 
 const PROVIDERS: { id: AiProvider; label: string }[] = [
   { id: 'gemini', label: 'Google Gemini' },
@@ -24,6 +25,25 @@ export function Settings() {
   const [saved, setSaved] = useState(false)
   const [testState, setTestState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [testMessage, setTestMessage] = useState('')
+  const [importState, setImportState] = useState<'idle' | 'importing' | 'ok' | 'error'>('idle')
+  const [importMessage, setImportMessage] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImportState('importing')
+    try {
+      const result = await importBackup(file)
+      setImportState('ok')
+      setImportMessage(`已還原 ${result.entriesCount} 篇日記、${result.promptAnswersCount} 則小問題回答，重新整理中…`)
+      setTimeout(() => window.location.reload(), 1200)
+    } catch (err) {
+      setImportState('error')
+      setImportMessage(err instanceof Error ? err.message : '匯入失敗，請確認檔案是否正確。')
+    }
+  }
 
   function handleProviderChange(next: AiProvider) {
     setProviderInput(next)
@@ -154,13 +174,39 @@ export function Settings() {
       )}
       {testState === 'error' && <p className="text-sm text-clay-500 mb-6">{testMessage}</p>}
 
-      <div className="card bg-stone-50/70">
+      <div className="card bg-stone-50/70 mb-6">
         <p className="text-xs text-stone-500 leading-relaxed">
           設定 API Key 後，「每週回顧」、「Insights」、日記紀錄與每日小問題頁面會出現「AI
           分析」按鈕，會把對應的紀錄內容送到你選擇的 AI 服務做情緒分析與建議，屬於選用功能、不會自動執行。不設定 Key
           也完全不影響其他功能，仍會顯示免費的關鍵字式分析。這是你的個人紀錄，請自行評估是否要將內容送到第三方 API
           分析。切換 AI 服務不會刪除另一個服務已經存的 Key 和模型設定。
         </p>
+      </div>
+
+      <h2 className="text-sm font-medium text-stone-600 mb-3">資料備份</h2>
+      <div className="card mb-6 space-y-4">
+        <p className="text-xs text-stone-400 leading-relaxed">
+          日記紀錄只存在這支裝置的瀏覽器裡，換手機或清瀏覽器資料就會不見。匯出備份會產生一個檔案，你可以自己存到雲端硬碟、傳給自己的
+          LINE 或寄 email 給自己；到新裝置後用「匯入備份」讀取那個檔案，就能還原所有日記和每日小問題的回答（不含
+          API Key，Key 需要在新裝置重新輸入）。
+        </p>
+        <div className="flex gap-3">
+          <button type="button" onClick={exportBackup} className="btn-secondary flex-1">
+            匯出備份
+          </button>
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-secondary flex-1">
+            {importState === 'importing' ? '匯入中…' : '匯入備份'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+        </div>
+        {importState === 'ok' && <p className="text-sm text-sage-600">{importMessage}</p>}
+        {importState === 'error' && <p className="text-sm text-clay-500">{importMessage}</p>}
       </div>
     </div>
   )
