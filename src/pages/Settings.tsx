@@ -204,7 +204,7 @@ export function Settings() {
 
       <div className="card bg-stone-50/70 mb-6">
         <p className="text-xs text-stone-500 leading-relaxed">
-          設定 API Key 後，「每週回顧」、「Insights」、日記紀錄與每日小問題頁面會出現「AI
+          設定 API Key 後，「每週回顧」、「月回顧」、日記紀錄與每日小問題頁面會出現「AI
           分析」按鈕，會把對應的紀錄內容送到你選擇的 AI 服務做情緒分析與建議，屬於選用功能、不會自動執行。不設定 Key
           也完全不影響其他功能，仍會顯示免費的關鍵字式分析。這是你的個人紀錄，請自行評估是否要將內容送到第三方 API
           分析。切換 AI 服務不會刪除另一個服務已經存的 Key 和模型設定。

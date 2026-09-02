@@ -47,7 +47,7 @@ export function Insights({ journal }: Props) {
 
   return (
     <div>
-      <PageHeader title="Insights" subtitle="慢慢認識自己的樣子" />
+      <PageHeader title="月回顧" subtitle="慢慢認識自己的樣子" />
 
       <Link
         to="/reflections"

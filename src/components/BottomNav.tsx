@@ -4,7 +4,7 @@ const ITEMS = [
   { to: '/', label: '首頁', icon: HomeIcon, end: true },
   { to: '/history', label: '歷史', icon: CalendarIcon, end: false },
   { to: '/weekly', label: '週回顧', icon: SparkleIcon, end: false },
-  { to: '/insights', label: 'Insights', icon: ChartIcon, end: false },
+  { to: '/insights', label: '月回顧', icon: ChartIcon, end: false },
 ]
 
 export function BottomNav() {
