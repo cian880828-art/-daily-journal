@@ -15,7 +15,7 @@ import { Settings } from './pages/Settings'
 import { Login } from './pages/Login'
 
 export default function App() {
-  const { user, loading: authLoading, signInWithGoogle } = useAuth()
+  const { user, loading: authLoading, signInWithGoogle, signInWithOtp, verifyOtp } = useAuth()
   const [migrating, setMigrating] = useState(false)
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login onSignIn={signInWithGoogle} />
+    return <Login onSignInWithGoogle={signInWithGoogle} onSendCode={signInWithOtp} onVerifyCode={verifyOtp} />
   }
 
   return <AuthenticatedApp />
