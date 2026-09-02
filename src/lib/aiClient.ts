@@ -339,7 +339,7 @@ function pickDailyFocus(entry: JournalEntry): 'negative' | 'positive' | 'mixed' 
   const negativeCount = entry.emotions.filter((e) => NEGATIVE_EMOTIONS.includes(e)).length
   const positiveCount = entry.emotions.filter((e) => POSITIVE_EMOTIONS.includes(e)).length
   if (entry.mood <= 5 && negativeCount >= 2) return 'negative'
-  if (entry.mood >= 5 && positiveCount >= 2) return 'positive'
+  if (entry.mood >= 8 && positiveCount >= 2) return 'positive'
   return 'mixed'
 }
 
@@ -349,7 +349,7 @@ export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
     focus === 'negative'
       ? '今天的心情評分偏低（5 分以下），主要情緒裡也有 2 個以上偏負面，請把分析聚焦在難過、不舒服或煩躁的部分；開心的事這次不用特別分析。'
       : focus === 'positive'
-        ? '今天的心情評分偏高（5 分以上），主要情緒裡也有 2 個以上偏正面，請把分析聚焦在開心、順利的部分。不用刻意找出「刺痛點」或難過的原因——coreWound 可以直接說明今天心情穩定、正向，不需要勉強挖掘負面情緒。'
+        ? '今天的心情評分很高（8 分以上），主要情緒裡也有 2 個以上偏正面，請把分析聚焦在開心、順利的部分。不用刻意找出「刺痛點」或難過的原因——coreWound 可以直接說明今天心情穩定、正向，不需要勉強挖掘負面情緒。'
         : '今天可能同時有開心和難過的部分（或情緒不明顯偏向單一方向），請把這些不同的心情自然地融合在一起討論，不需要只選一種來分析，也不用勉強兩者一定要有因果關係。'
 
   const userText = `以下是使用者今天的日記紀錄：
