@@ -29,7 +29,21 @@ export function Settings() {
   const [testMessage, setTestMessage] = useState('')
   const [importState, setImportState] = useState<'idle' | 'importing' | 'ok' | 'error'>('idle')
   const [importMessage, setImportMessage] = useState('')
+  const [exportState, setExportState] = useState<'idle' | 'exporting' | 'error'>('idle')
+  const [exportMessage, setExportMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleExport() {
+    setExportState('exporting')
+    setExportMessage('')
+    try {
+      await exportBackup()
+      setExportState('idle')
+    } catch (err) {
+      setExportState('error')
+      setExportMessage(err instanceof Error ? err.message : '匯出失敗，請再試一次。')
+    }
+  }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -198,13 +212,12 @@ export function Settings() {
       <h2 className="text-sm font-medium text-stone-600 mb-3">資料備份</h2>
       <div className="card mb-6 space-y-4">
         <p className="text-xs text-stone-400 leading-relaxed">
-          日記紀錄只存在這支裝置的瀏覽器裡，換手機或清瀏覽器資料就會不見。匯出備份會產生一個檔案，你可以自己存到雲端硬碟、傳給自己的
-          LINE 或寄 email 給自己；到新裝置後用「匯入備份」讀取那個檔案，就能還原所有日記和每日小問題的回答（不含
-          API Key，Key 需要在新裝置重新輸入）。
+          日記紀錄存在你登入帳號的雲端資料庫裡，換裝置只要登入同一個 Google 帳號就看得到。匯出備份會把目前帳號裡的所有內容存成一個檔案，可以自己留一份存到雲端硬碟或寄
+          email 給自己；「匯入備份」會把檔案裡的內容寫回目前登入的帳號（依日期比對，同一天以匯入的內容覆蓋），適合救回誤刪的紀錄或把舊裝置留存的檔案補進帳號。
         </p>
         <div className="flex gap-3">
-          <button type="button" onClick={exportBackup} className="btn-secondary flex-1">
-            匯出備份
+          <button type="button" onClick={handleExport} disabled={exportState === 'exporting'} className="btn-secondary flex-1">
+            {exportState === 'exporting' ? '匯出中…' : '匯出備份'}
           </button>
           <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-secondary flex-1">
             {importState === 'importing' ? '匯入中…' : '匯入備份'}
@@ -217,6 +230,7 @@ export function Settings() {
             onChange={handleImportFile}
           />
         </div>
+        {exportState === 'error' && <p className="text-sm text-clay-500">{exportMessage}</p>}
         {importState === 'ok' && <p className="text-sm text-sage-600">{importMessage}</p>}
         {importState === 'error' && <p className="text-sm text-clay-500">{importMessage}</p>}
       </div>

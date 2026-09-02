@@ -1,8 +1,6 @@
 import type { JournalEntry } from '../types/journal'
 import type { PromptAnswer } from './promptAnswers'
-
-const ENTRIES_KEY = 'daily-journal:entries:v1'
-const PROMPT_ANSWERS_KEY = 'daily-journal:prompt-answers:v1'
+import { supabase } from './supabaseClient'
 
 interface BackupFile {
   app: 'daily-journal'
@@ -12,38 +10,66 @@ interface BackupFile {
   promptAnswers: PromptAnswer[]
 }
 
-function readEntries(): JournalEntry[] {
-  try {
-    const raw = localStorage.getItem(ENTRIES_KEY)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
+interface EntryRow {
+  date: string
+  happy: string
+  upset: string
+  grateful: string
+  proud_of: string
+  note_to_self: string
+  mood: number
+  emotions: string[]
+  created_at: string
+  updated_at: string
+}
+
+interface PromptAnswerRow {
+  date: string
+  question: string
+  answer: string
+  updated_at: string
+}
+
+function entryFromRow(row: EntryRow): JournalEntry {
+  return {
+    id: row.date,
+    date: row.date,
+    happy: row.happy,
+    upset: row.upset,
+    grateful: row.grateful,
+    proudOf: row.proud_of,
+    noteToSelf: row.note_to_self,
+    mood: row.mood,
+    emotions: row.emotions as JournalEntry['emotions'],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
-function readPromptAnswers(): PromptAnswer[] {
-  try {
-    const raw = localStorage.getItem(PROMPT_ANSWERS_KEY)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+function promptAnswerFromRow(row: PromptAnswerRow): PromptAnswer {
+  return { date: row.date, question: row.question, answer: row.answer, updatedAt: row.updated_at }
 }
 
 /** Downloads a JSON file with everything the user actually wrote — journal
- * entries and daily-question answers. Deliberately excludes AI settings
- * (an API key shouldn't end up in a file that might get shared or synced
- * elsewhere) and the AI insight cache (just regenerable analysis results,
- * not worth the file size). */
-export function exportBackup(): void {
+ * entries and daily-question answers — read from their cloud account
+ * (the actual source of truth). Deliberately excludes AI settings (an API
+ * key shouldn't end up in a file that might get shared or synced
+ * elsewhere) and the AI insight cache (just regenerable analysis
+ * results, not worth the file size). */
+export async function exportBackup(): Promise<void> {
+  const [{ data: entryRows, error: entriesError }, { data: promptRows, error: promptError }] = await Promise.all([
+    supabase.from('journal_entries').select('*'),
+    supabase.from('prompt_answers').select('*'),
+  ])
+  if (entriesError) throw entriesError
+  if (promptError) throw promptError
+
   const backup: BackupFile = {
     app: 'daily-journal',
     version: 1,
     exportedAt: new Date().toISOString(),
-    entries: readEntries(),
-    promptAnswers: readPromptAnswers(),
+    entries: (entryRows ?? []).map(entryFromRow),
+    promptAnswers: (promptRows ?? []).map(promptAnswerFromRow),
   }
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -59,22 +85,11 @@ export function exportBackup(): void {
 
 export class BackupImportError extends Error {}
 
-/** For each date, whichever copy (already on this device, or from the
- * imported file) has the newer updatedAt wins — so importing an older
- * backup on top of newer local entries can't accidentally lose them, and
- * importing on a fresh device just restores everything. */
-function mergeByDate<T extends { date: string; updatedAt: string }>(existing: T[], incoming: T[]): T[] {
-  const byDate = new Map<string, T>()
-  for (const item of existing) byDate.set(item.date, item)
-  for (const item of incoming) {
-    const current = byDate.get(item.date)
-    if (!current || item.updatedAt > current.updatedAt) {
-      byDate.set(item.date, item)
-    }
-  }
-  return Array.from(byDate.values())
-}
-
+/** Uploads a backup file's contents into the signed-in user's cloud
+ * account — upsert by date, so importing the same file twice (or an old
+ * backup after writing more entries) never creates duplicates; the
+ * imported copy simply overwrites the corresponding date on this
+ * account. */
 export async function importBackup(file: File): Promise<{ entriesCount: number; promptAnswersCount: number }> {
   const text = await file.text()
   let parsed: unknown
@@ -94,11 +109,39 @@ export async function importBackup(file: File): Promise<{ entriesCount: number; 
   const backup = parsed as BackupFile
   const promptAnswers = Array.isArray(backup.promptAnswers) ? backup.promptAnswers : []
 
-  const mergedEntries = mergeByDate(readEntries(), backup.entries)
-  localStorage.setItem(ENTRIES_KEY, JSON.stringify(mergedEntries))
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new BackupImportError('尚未登入，請先登入後再匯入備份。')
 
-  const mergedPromptAnswers = mergeByDate(readPromptAnswers(), promptAnswers)
-  localStorage.setItem(PROMPT_ANSWERS_KEY, JSON.stringify(mergedPromptAnswers))
+  if (backup.entries.length > 0) {
+    const rows = backup.entries.map((e) => ({
+      user_id: user.id,
+      date: e.date,
+      happy: e.happy,
+      upset: e.upset,
+      grateful: e.grateful,
+      proud_of: e.proudOf,
+      note_to_self: e.noteToSelf,
+      mood: e.mood,
+      emotions: e.emotions,
+      updated_at: e.updatedAt,
+    }))
+    const { error } = await supabase.from('journal_entries').upsert(rows, { onConflict: 'user_id,date' })
+    if (error) throw error
+  }
+
+  if (promptAnswers.length > 0) {
+    const rows = promptAnswers.map((a) => ({
+      user_id: user.id,
+      date: a.date,
+      question: a.question,
+      answer: a.answer,
+      updated_at: a.updatedAt,
+    }))
+    const { error } = await supabase.from('prompt_answers').upsert(rows, { onConflict: 'user_id,date' })
+    if (error) throw error
+  }
 
   return { entriesCount: backup.entries.length, promptAnswersCount: promptAnswers.length }
 }
