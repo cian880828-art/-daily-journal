@@ -252,7 +252,7 @@ export function Settings() {
       <h2 className="text-sm font-medium text-stone-600 mb-3">提醒通知</h2>
       <div className="card mb-6 space-y-3">
         <p className="text-xs text-stone-400 leading-relaxed">
-          開啟後，每天晚上 8:30 如果還沒寫今天的紀錄會提醒一次；9 點之後如果還是沒寫，每 30 分鐘再提醒一次，寫了之後就不會再收到。iPhone
+          開啟後，每天晚上 8:30、9:00、9:30 這三個時間點，只要還沒寫今天的紀錄就會提醒一次，寫了之後就不會再收到。iPhone
           需要先「加入主畫面」，用主畫面圖示打開才支援推播通知。
         </p>
         {reminderState === 'unsupported' && (

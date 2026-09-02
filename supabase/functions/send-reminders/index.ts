@@ -1,11 +1,10 @@
 // Triggered on a schedule (every 30 minutes, via Supabase Cron — see
 // README.md in this repo's supabase/ directory for setup) to check every
-// subscribed device: if it's 20:30 or later in that user's local timezone
-// and they haven't written today's journal entry yet, send a push
-// reminder. Naturally stops firing after local midnight (the hour drops
-// below 20) until 20:30 rolls around again the next day — no separate
-// "already reminded" tracking needed, since the cron only ticks once per
-// half hour anyway.
+// subscribed device: at exactly 20:30, 21:00, and 21:30 local time, if
+// today's journal entry still hasn't been written, send a push reminder.
+// No reminders outside those three slots, and no separate "already
+// reminded" tracking needed — the cron only ticks once per half hour, and
+// isReminderSlot only allows those three (hour, minute) pairs through.
 //
 // Runs with the Supabase-injected service-role key (server-side only,
 // never exposed to the browser) so it can read every user's subscriptions
@@ -42,13 +41,10 @@ function localParts(timeZone: string, now: Date): { dateKey: string; hour: numbe
   }
 }
 
-// 20:30, then every half hour after — matches "8:30 提醒，9 點後每 30 分鐘再提醒一次"
-// since 21:00/21:30/... are already every-30-min slots from 20:30 onward.
+// Exactly three reminder slots a night: 20:30, 21:00, 21:30. Nothing before
+// or after.
 function isReminderSlot(hour: number, minute: number): boolean {
-  if (minute !== 0 && minute !== 30) return false
-  if (hour < 20) return false
-  if (hour === 20 && minute < 30) return false
-  return true
+  return (hour === 20 && minute === 30) || (hour === 21 && (minute === 0 || minute === 30))
 }
 
 Deno.serve(async () => {
