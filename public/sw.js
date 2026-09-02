@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-journal-cache-v1'
+const CACHE_NAME = 'daily-journal-cache-v2'
 // Relative to the service worker's own scope, not the domain root — this
 // app can be hosted at "/" (local dev) or under a subpath like
 // "/-daily-journal/" (GitHub Pages project page).
@@ -22,10 +22,19 @@ self.addEventListener('activate', (event) => {
 })
 
 // Network-first for navigations (so app updates show up quickly), falling
-// back to cache when offline; cache-first for static assets.
+// back to cache when offline; cache-first for this app's own static
+// assets only.
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
+
+  // Anything not served from this app's own origin — Supabase (database +
+  // auth), Gemini, Groq, etc. — must never be cached. This app's data is
+  // never static: caching an API response here means every future read
+  // silently returns whatever was true the first time that exact request
+  // was made, no matter how much has changed in the database since. Let
+  // those go straight to the network, uninvolved with the cache at all.
+  if (new URL(request.url).origin !== self.location.origin) return
 
   if (request.mode === 'navigate') {
     event.respondWith(
