@@ -254,7 +254,6 @@ const DAILY_STEPS: { key: keyof AiDailyInsight; title: string }[] = [
   { key: 'underlyingNeeds', title: '情緒底下可能在需要什麼' },
   { key: 'coreWound', title: '真正刺痛你的地方' },
   { key: 'innerPattern', title: '今天看見的內在模式' },
-  { key: 'realityVsInference', title: '現實 vs. 腦中推演' },
   { key: 'reframe', title: '換個角度看' },
   { key: 'nextStep', title: '明天可以試試看' },
 ]

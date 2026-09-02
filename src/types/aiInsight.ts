@@ -4,7 +4,6 @@ export interface AiDailyInsight {
   underlyingNeeds: string
   coreWound: string
   innerPattern: string
-  realityVsInference: string
   reframe: string
   nextStep: string
 }
