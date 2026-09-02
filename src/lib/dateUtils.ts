@@ -60,10 +60,13 @@ export function subtractMonths(key: string, months: number): string {
   return toDateKey(d)
 }
 
-/** Consecutive-day streak ending today, given a set of recorded date keys. */
+/** Consecutive-day streak, given a set of recorded date keys. If today isn't
+ * recorded yet, the streak still counts from yesterday backward — it only
+ * actually breaks once a full day is skipped, rather than reading as 0 all
+ * day, every day, until that day's entry is written. */
 export function computeStreak(dateKeys: Set<string>, endKey: string = todayKey()): number {
   let streak = 0
-  let cursor = endKey
+  let cursor = dateKeys.has(endKey) ? endKey : addDays(endKey, -1)
   while (dateKeys.has(cursor)) {
     streak += 1
     cursor = addDays(cursor, -1)
