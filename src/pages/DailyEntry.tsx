@@ -50,7 +50,7 @@ export function DailyEntry({ journal }: Props) {
   const isEditingExisting = existingEntry !== undefined
 
   const aiFingerprint = existingEntry ? computeFingerprint([existingEntry]) : ''
-  const ai = useAiInsight<AiDailyInsight>(`daily:${date}`, aiFingerprint, () => analyzeDay(existingEntry!))
+  const ai = useAiInsight<AiDailyInsight>(`daily:${date}`, aiFingerprint, () => analyzeDay(existingEntry!, entries))
 
   function applyEntryData(targetDate: string) {
     const draft = getDraft(targetDate)
@@ -249,14 +249,14 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiDailyInsight>>
 }
 
 const DAILY_STEPS: { key: keyof AiDailyInsight; title: string }[] = [
-  { key: 'coreEvent', title: '今天真正影響你的是什麼' },
-  { key: 'surfaceFeelings', title: '你表面感受到的是' },
-  { key: 'underlyingNeeds', title: '情緒底下其實在需要什麼' },
+  { key: 'coreEvents', title: '今天真正影響你的是' },
+  { key: 'emotionBreakdown', title: '情緒拆解' },
+  { key: 'underlyingNeeds', title: '情緒底下可能在需要什麼' },
   { key: 'coreWound', title: '真正刺痛你的地方' },
   { key: 'innerPattern', title: '今天看見的內在模式' },
+  { key: 'realityVsInference', title: '現實 vs. 腦中推演' },
   { key: 'reframe', title: '換個角度看' },
-  { key: 'explorationQuestion', title: '值得思考' },
-  { key: 'suggestions', title: '建議' },
+  { key: 'nextStep', title: '明天可以試試看' },
 ]
 
 function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
@@ -288,17 +288,7 @@ function AiDailySteps({ insight }: { insight: AiDailyInsight }) {
                 {step.title}
               </p>
             </div>
-            {Array.isArray(value) ? (
-              <ol className="space-y-1">
-                {value.map((s, j) => (
-                  <li key={j} className="text-sm text-stone-700 leading-relaxed">
-                    {j + 1}. {s}
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-sm text-stone-700 leading-relaxed">{value}</p>
-            )}
+            <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">{value}</p>
           </div>
         )
       })}

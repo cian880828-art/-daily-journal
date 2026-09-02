@@ -13,6 +13,15 @@ function readCache<T>(key: string): CachedAiInsight<T> | null {
   }
 }
 
+/** Reads a previously cached AI insight by its cache key (e.g.
+ * `daily:2026-09-01`) without subscribing to it — used by aiClient to pull
+ * recent days' cached results as context for the next analysis (so it can
+ * avoid repeating the same suggestion, or recognize a pattern across
+ * several days) without re-calling the AI for days that already ran. */
+export function readCachedInsight<T>(key: string): CachedAiInsight<T> | null {
+  return readCache<T>(key)
+}
+
 function writeCache<T>(key: string, value: CachedAiInsight<T>): void {
   localStorage.setItem(PREFIX + key, JSON.stringify(value))
 }

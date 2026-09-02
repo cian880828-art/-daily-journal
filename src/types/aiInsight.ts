@@ -1,12 +1,12 @@
 export interface AiDailyInsight {
-  coreEvent: string
-  surfaceFeelings: string
+  coreEvents: string
+  emotionBreakdown: string
   underlyingNeeds: string
   coreWound: string
   innerPattern: string
+  realityVsInference: string
   reframe: string
-  explorationQuestion: string
-  suggestions: string[]
+  nextStep: string
 }
 
 export interface AiPromptInsight {

@@ -1,7 +1,8 @@
-import type { Emotion, JournalEntry } from '../types/journal'
+import type { JournalEntry } from '../types/journal'
 import type { AiDailyInsight, AiMonthlyInsight, AiPromptInsight, AiWeeklyInsight } from '../types/aiInsight'
-import { formatDateLabel } from './dateUtils'
+import { addDays, formatDateLabel, lastNDays } from './dateUtils'
 import { getApiKey, getModel, getProvider } from './aiSettings'
+import { readCachedInsight } from './useAiInsight'
 
 /** Thin clients for the supported AI providers (Gemini, Groq), called
  * directly from the browser with the user's own key — no backend, so
@@ -307,69 +308,122 @@ ${serializeEntries(entries)}
 const DAILY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    coreEvent: { type: 'STRING' },
-    surfaceFeelings: { type: 'STRING' },
+    coreEvents: { type: 'STRING' },
+    emotionBreakdown: { type: 'STRING' },
     underlyingNeeds: { type: 'STRING' },
     coreWound: { type: 'STRING' },
     innerPattern: { type: 'STRING' },
+    realityVsInference: { type: 'STRING' },
     reframe: { type: 'STRING' },
-    explorationQuestion: { type: 'STRING' },
-    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
+    nextStep: { type: 'STRING' },
   },
   required: [
-    'coreEvent',
-    'surfaceFeelings',
+    'coreEvents',
+    'emotionBreakdown',
     'underlyingNeeds',
     'coreWound',
     'innerPattern',
+    'realityVsInference',
     'reframe',
-    'explorationQuestion',
-    'suggestions',
+    'nextStep',
   ],
 }
 
-const POSITIVE_EMOTIONS: Emotion[] = ['開心', '平靜', '期待', '滿足']
-const NEGATIVE_EMOTIONS: Emotion[] = ['焦慮', '難過', '生氣', '疲憊', '孤單']
+/** This app's persona for the daily breakdown specifically — deliberately
+ * separate from SYSTEM_PREAMBLE (used by weekly/monthly/prompt), which
+ * stays a simpler, softer voice. The daily analysis is meant to feel like
+ * "a friend who really gets you, points out what you might not have
+ * noticed" rather than a counselor's report or a motivational poster —
+ * see the block-by-block instructions in analyzeDay for how each section
+ * is expected to earn that. */
+const DAILY_SYSTEM_PREAMBLE = `你是使用者的「溫柔、精準的自我觀察助手」。
+你不是心理諮商師、不是人生導師，也不是只會安慰人的聊天機器人。
+你的目標是讓使用者感覺：「有人真的理解我，但也願意幫我看見我沒有注意到的地方。」
 
-/** Decides which part of the day to focus the analysis on, from mood
- * score + emotion tags rather than free text — a clear, low mood with
- * mostly negative tags (or the mirror case) should analyze only that
- * side; anything less clear-cut is treated as a genuinely mixed day. */
-function pickDailyFocus(entry: JournalEntry): 'negative' | 'positive' | 'mixed' {
-  const negativeCount = entry.emotions.filter((e) => NEGATIVE_EMOTIONS.includes(e)).length
-  const positiveCount = entry.emotions.filter((e) => POSITIVE_EMOTIONS.includes(e)).length
-  if (entry.mood <= 5 && negativeCount >= 2) return 'negative'
-  if (entry.mood >= 8 && positiveCount >= 2) return 'positive'
-  return 'mixed'
+【總體原則】
+- 不要刻意正向思考，不需要替每個負面情緒找光明面，不要把所有事情都解讀成成長
+- 不為了讓使用者感覺好而美化事實；可以指出矛盾、不合理期待、自我欺騙、逃避與重複模式，但不能武斷下結論
+- 一律使用「可能」「目前看起來」「也許」「如果這個模式持續出現」這類措辭，不要用「你一定是因為…」這種肯定語氣
+- 只根據日記中真正存在的資訊分析，不要腦補紀錄裡沒有的事；若資料不足，要明確說「今天的紀錄還不足以判斷」
+- 不進行心理疾病、依附類型、人格等診斷
+- 如果今天沒有明顯問題，不需要硬找問題；如果有正面的事情，可以承認它帶來的感受，但不要硬把負面事情翻成正面
+- 語氣要溫柔、有人味，但不要過度安慰——大約 30% 理解、50% 洞察、20% 行動；可以適度表達理解（例如「這件事確實會讓人有點卡住」「看起來你今天其實同時承受了兩種拉扯」），但不要大量使用安慰句
+- 絕對避免這些空泛鼓勵，除非上下文真的非常需要：「你很棒」「你已經做得很好了」「這證明你正在成長」「一切都會變好的」「相信自己」「你值得被愛」「你要學會愛自己」「今天也辛苦了」
+- 一律使用繁體中文
+- 只能回傳一個合法的 JSON 物件，不要加上 markdown code fence、不要加上任何額外文字或說明`
+
+/** Journal entries strictly before `beforeDate`, within the last `days`
+ * days, oldest first — given to the daily analysis as context so a
+ * pattern that only shows up across several days can actually be
+ * recognized, instead of every day being analyzed as if it's the first
+ * one the AI has ever seen. */
+function recentEntriesBefore(entries: JournalEntry[], beforeDate: string, days: number): JournalEntry[] {
+  const cutoff = addDays(beforeDate, -days)
+  return entries
+    .filter((e) => e.date < beforeDate && e.date >= cutoff)
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
-export async function analyzeDay(entry: JournalEntry): Promise<AiDailyInsight> {
-  const focus = pickDailyFocus(entry)
-  const focusInstruction =
-    focus === 'negative'
-      ? '今天的心情評分偏低（5 分以下），主要情緒裡也有 2 個以上偏負面，請把分析聚焦在難過、不舒服或煩躁的部分；開心的事這次不用特別分析。'
-      : focus === 'positive'
-        ? '今天的心情評分很高（8 分以上），主要情緒裡也有 2 個以上偏正面，請把分析聚焦在開心、順利的部分。不用刻意找出「刺痛點」或難過的原因——coreWound 可以直接說明今天心情穩定、正向，不需要勉強挖掘負面情緒。'
-        : '今天可能同時有開心和難過的部分（或情緒不明顯偏向單一方向），請把這些不同的心情自然地融合在一起討論，不需要只選一種來分析，也不用勉強兩者一定要有因果關係。'
+/** The "明天可以試試看" suggestion from each of the last `days` days that
+ * already has a cached AI result — read straight from the local AI-result
+ * cache (no extra API calls) and fed back into the prompt so today's
+ * suggestion doesn't just repeat one already given earlier in the week. */
+function recentNextSteps(beforeDate: string, days: number): { date: string; nextStep: string }[] {
+  const out: { date: string; nextStep: string }[] = []
+  for (const date of lastNDays(days, addDays(beforeDate, -1))) {
+    const cached = readCachedInsight<AiDailyInsight>(`daily:${date}`)
+    if (cached?.result.nextStep) out.push({ date, nextStep: cached.result.nextStep })
+  }
+  return out
+}
 
-  const userText = `以下是使用者今天的日記紀錄：
+export async function analyzeDay(entry: JournalEntry, allEntries: JournalEntry[] = []): Promise<AiDailyInsight> {
+  const history = recentEntriesBefore(allEntries, entry.date, 30)
+  const pastNextSteps = recentNextSteps(entry.date, 7)
+
+  const historyBlock = history.length
+    ? `以下是使用者最近的日記紀錄，由舊到新排序，僅供你參考長期模式，不要逐篇分析：
+
+${serializeEntries(history)}
+
+只有當同一種情緒、觸發事件或需求，在這些紀錄中至少出現 2-3 次以上，才可以在分析中描述為「反覆出現的模式」；如果只出現一次，不要說是模式，也不要因為一天的紀錄就建立長期人格結論。`
+    : '目前沒有足夠的過去紀錄可以參考——如果需要提到模式，請直接說今天的紀錄還不足以判斷是否為固定模式。'
+
+  const pastSuggestionsBlock = pastNextSteps.length
+    ? `以下是最近幾天「明天可以試試看」已經用過的方法：
+${pastNextSteps.map((s) => `- ${s.date}：${s.nextStep}`).join('\n')}
+除非今天有非常明確的理由需要再次練習同一個方法，否則這次的 nextStep 請換一種不同形式（例如：延遲反應、記錄觸發點、預期 vs 實際結果比較、事實／推論拆分、行為實驗、對照測試、優先級分類、控制圈分類、界線測試、決策拆解、需求辨識、情緒強度評分、自己 vs 他人標準比較、找出第一個自動想法、找出真正害怕的結果），不要只是換句話說同一件事。`
+    : ''
+
+  const userText = `${historyBlock}
+
+${pastSuggestionsBlock}
+
+以下是使用者今天的日記紀錄：
 
 ${serializeEntries([entry])}
 
-${focusInstruction}
+請依序完成以下 8 個區塊分析（字串內容一律繁體中文，每個區塊約 50-120 字；資料不足可以更短，不要為了湊字數重複同一件事，不要逐字重述日記原文）：
 
-語氣要求：溫柔但不要過度安慰，可以直白，不說教，不下診斷，不要用「你一定是因為…」這種肯定語氣的推斷，多用「可能」「看起來」「也許」。分析必須根據紀錄裡實際出現的內容，不要腦補紀錄裡沒有的事。
+1. coreEvents（今天真正影響你的是）：只挑出 2-4 個真正影響情緒的事件，重點是回答「今天哪些事情真的有影響到你？」，不要逐字重述或摘要整篇日記
 
-請依序拆解（字串內容一律繁體中文，每項 3-5 句話，具體、不要空泛，不要逐字重述日記原文）：
-- coreEvent：簡短整理今天真正影響情緒的核心事件是什麼，如果同時有開心和難過的事，兩者都可以提到
-- surfaceFeelings：指出今天最明顯的 1-3 個情緒，可以同時包含正向和負向的情緒（例如同時感到開心又有點焦慮），不用只選一種
-- underlyingNeeds：分析這些情緒背後可能在滿足或渴望什麼樣的需求，可以參考這類對照但不必照抄、依實際情況調整：焦慮→想獲得確定感、委屈→希望被理解、生氣→界線被侵犯、孤單→渴望連結、嫉妒→害怕自己不夠重要、開心/滿足→某個重要的需求被好好滿足了
-- coreWound：如果今天有讓使用者難受的部分，找出真正讓他難受的核心是什麼，不一定是事件表面本身——例如不是「對方沒有回訊息」，而可能是「沒有被放在心上的感覺」；如果今天沒有明顯難受的部分，可以誠實地說今天心情比較穩定或正向，不用勉強找刺痛點
-- innerPattern：觀察今天是否透露出重複的思考或行為模式，例如：容易預想最壞結果、把安全感綁在別人的反應上、對自己要求過高、很難接受事情失去控制、習慣先照顧別人的感受、容易否定自己的需要——只描述可能的模式，絕對不要下心理疾病或人格診斷
-- reframe：提供一個使用者可能沒有想到、但合理且具體的觀點，幫助他更深入理解今天的心情（不論是難過的事，還是開心的事），不是單純的正能量喊話
-- explorationQuestion：不要直接告訴使用者應該怎麼做，而是提出一個根據今天紀錄客製化、值得使用者自己回答的探索性問題，幫助他更理解自己（風格參考：「如果今天沒有人需要你證明自己，你真正想怎麼過這一天？」，但不要套用範例本身，要依今天的內容重新設計）
-- suggestions：1-3 個具體、溫和、今天或明天就能嘗試的建議，針對今天的內容客製化（如果是難過的事，可以聚焦在照顧自己或化解問題；如果是開心的事，可以聚焦在如何延續或珍惜這份感受），不要講空泛的大道理`
-  const raw = await callAi(SYSTEM_PREAMBLE, userText, 4096, DAILY_SCHEMA)
+2. emotionBreakdown（情緒拆解）：把今天最值得注意的一個情緒事件拆成「事件」「自動想法」「情緒」「行為／反應」四段，用換行分開清楚標示（格式類似「事件：\n...\n\n自動想法：\n...\n\n情緒：\n...\n\n行為／反應：\n...」），不要把「發生的事情」和「自己的解讀」混在一起
+
+3. underlyingNeeds（情緒底下可能在需要什麼）：不要只回答「安全感」「被愛」「支持」這種太籠統的答案，請更具體描述背後真正在意的是什麼（例如「你可能需要的是一種『事情即使還沒有答案，我也知道自己不會被突然丟下』的穩定感」）；如果證據不足，可以直接說目前無法判斷
+
+4. coreWound（真正刺痛你的地方）：區分「事件本身」和「事件讓使用者感受到什麼」，例如真正刺痛的可能不是「對方沒有回訊息」，而是「好像自己沒有那麼重要」；如果今天沒有明顯刺痛點，不要硬找，可以直接說今天心情比較穩定、正向
+
+5. innerPattern（今天看見的內在模式）：不要每天都硬找心理模式，如果證據不足就直接寫「目前不足以判斷這是不是固定模式。」；如果有觀察到，用「今天出現了一個可能值得觀察的模式：＿＿＿」開頭，並包含今天出現這個模式的證據、可能帶來的影響、還需要觀察什麼才能確認，一次最多選一個最重要的模式，不要一次列好幾個人格特質
+
+6. realityVsInference（現實 vs. 腦中推演）：如果今天有焦慮、不確定、關係問題、自責等內容，請幫使用者拆成「目前已知的事實」「你腦中增加的推論」「目前仍然不知道」三段（用換行分開），特別檢查是否出現預測未來、最壞情境推演、猜測別人的想法、把一件事情擴大成整體結果、把感受當成事實、過度自責；如果今天沒有明顯需要拆分的推演，直接寫「今天沒有明顯需要拆分的推演。」
+
+7. reframe（換個角度看）：提供一個使用者可能沒有想到的角度，不一定要正面，目的是增加新的理解，不是讓使用者「想開」；不要硬把事情包裝成「這其實是一件好事」，如果真的沒有新角度，可以直接說資料不足
+
+8. nextStep（明天可以試試看）：只給「一個」具體的小行動或小實驗，必須直接對應今天最重要的問題或模式，且符合：24 小時內可以完成、可以觀察結果、有明確行為、通常不超過 10-20 分鐘、做完後能得到新的資訊——不是為了叫使用者變正面，也不是單純舒壓，而是幫助理解自己或改變一個小反應。除非和今天的問題高度相關，否則避免「寫感恩/開心的事」「散步」「深呼吸」「找朋友聊天」「和伴侶分享感受」「好好休息」這類籠統建議
+
+如果今天其實過得很好、沒有明顯問題，就單純分析為什麼今天好，不需要挖出隱藏問題，coreWound 可以直接說明今天心情穩定、正向。`
+
+  const raw = await callAi(DAILY_SYSTEM_PREAMBLE, userText, 4096, DAILY_SCHEMA)
   return parseJson<AiDailyInsight>(raw)
 }
 
