@@ -1,6 +1,6 @@
 import type { JournalEntry } from '../types/journal'
 import type { PromptAnswer } from './promptAnswers'
-import { supabase } from './supabaseClient'
+import { getCurrentUserId, supabase, withTimeout } from './supabaseClient'
 
 interface BackupFile {
   app: 'daily-journal'
@@ -57,10 +57,9 @@ function promptAnswerFromRow(row: PromptAnswerRow): PromptAnswer {
  * elsewhere) and the AI insight cache (just regenerable analysis
  * results, not worth the file size). */
 export async function exportBackup(): Promise<void> {
-  const [{ data: entryRows, error: entriesError }, { data: promptRows, error: promptError }] = await Promise.all([
-    supabase.from('journal_entries').select('*'),
-    supabase.from('prompt_answers').select('*'),
-  ])
+  const [{ data: entryRows, error: entriesError }, { data: promptRows, error: promptError }] = await withTimeout(
+    Promise.all([supabase.from('journal_entries').select('*'), supabase.from('prompt_answers').select('*')]),
+  )
   if (entriesError) throw entriesError
   if (promptError) throw promptError
 
@@ -109,14 +108,12 @@ export async function importBackup(file: File): Promise<{ entriesCount: number; 
   const backup = parsed as BackupFile
   const promptAnswers = Array.isArray(backup.promptAnswers) ? backup.promptAnswers : []
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new BackupImportError('尚未登入，請先登入後再匯入備份。')
+  const userId = await withTimeout(getCurrentUserId())
+  if (!userId) throw new BackupImportError('尚未登入，請先登入後再匯入備份。')
 
   if (backup.entries.length > 0) {
     const rows = backup.entries.map((e) => ({
-      user_id: user.id,
+      user_id: userId,
       date: e.date,
       happy: e.happy,
       upset: e.upset,
@@ -127,19 +124,19 @@ export async function importBackup(file: File): Promise<{ entriesCount: number; 
       emotions: e.emotions,
       updated_at: e.updatedAt,
     }))
-    const { error } = await supabase.from('journal_entries').upsert(rows, { onConflict: 'user_id,date' })
+    const { error } = await withTimeout(supabase.from('journal_entries').upsert(rows, { onConflict: 'user_id,date' }))
     if (error) throw error
   }
 
   if (promptAnswers.length > 0) {
     const rows = promptAnswers.map((a) => ({
-      user_id: user.id,
+      user_id: userId,
       date: a.date,
       question: a.question,
       answer: a.answer,
       updated_at: a.updatedAt,
     }))
-    const { error } = await supabase.from('prompt_answers').upsert(rows, { onConflict: 'user_id,date' })
+    const { error } = await withTimeout(supabase.from('prompt_answers').upsert(rows, { onConflict: 'user_id,date' }))
     if (error) throw error
   }
 

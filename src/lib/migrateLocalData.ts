@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { supabase, withTimeout } from './supabaseClient'
 import type { JournalEntry } from '../types/journal'
 import type { PromptAnswer } from './promptAnswers'
 
@@ -53,7 +53,7 @@ export async function migrateLocalDataToCloud(userId: string): Promise<{ entries
       emotions: e.emotions,
       updated_at: e.updatedAt,
     }))
-    const { error } = await supabase.from('journal_entries').upsert(rows, { onConflict: 'user_id,date' })
+    const { error } = await withTimeout(supabase.from('journal_entries').upsert(rows, { onConflict: 'user_id,date' }))
     if (error) throw error
   }
 
@@ -65,7 +65,7 @@ export async function migrateLocalDataToCloud(userId: string): Promise<{ entries
       answer: a.answer,
       updated_at: a.updatedAt,
     }))
-    const { error } = await supabase.from('prompt_answers').upsert(rows, { onConflict: 'user_id,date' })
+    const { error } = await withTimeout(supabase.from('prompt_answers').upsert(rows, { onConflict: 'user_id,date' }))
     if (error) throw error
   }
 
