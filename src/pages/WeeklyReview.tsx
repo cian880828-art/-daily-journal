@@ -84,7 +84,10 @@ function Block({ title, highlight, children }: { title: string; highlight?: bool
 }
 
 function AiField({ title, value, highlight }: { title: string; value: string; highlight?: boolean }) {
-  if (!value.trim()) return null
+  // A cached result from before this block architecture shipped can still
+  // be sitting in localStorage under the old field names — guard against
+  // that (value undefined) rather than crashing the whole page on it.
+  if (!value?.trim()) return null
   return (
     <Block title={title} highlight={highlight}>
       <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">{value}</p>
