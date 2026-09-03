@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { useJournalEntries } from '../lib/useJournalEntries'
-import { buildLongTermThemes, buildMonthlyInsights } from '../lib/analytics'
+import { buildMonthlyInsights } from '../lib/analytics'
 import { analyzeMonth, computeFingerprint } from '../lib/aiClient'
 import { useAiInsight } from '../lib/useAiInsight'
 import type { AiMonthlyInsight } from '../types/aiInsight'
@@ -43,8 +43,6 @@ export function Insights({ journal }: Props) {
     analyzeMonth(insights.entries),
   )
 
-  const longTermThemes = useMemo(() => buildLongTermThemes(entries), [entries])
-
   return (
     <div>
       <PageHeader title="月回顧" subtitle="慢慢認識自己的樣子" />
@@ -56,19 +54,6 @@ export function Insights({ journal }: Props) {
         查看感謝清單與自我肯定紀錄
         <span aria-hidden>→</span>
       </Link>
-
-      {longTermThemes.length > 0 && (
-        <div className="card bg-clay-100/40 border-clay-200/60 mb-6">
-          <p className="text-xs text-clay-500 font-medium mb-2">最近三個月，反覆出現的主題</p>
-          <div className="flex flex-wrap gap-2">
-            {longTermThemes.map((t) => (
-              <span key={t.keyword} className="rounded-full bg-white px-3 py-1.5 text-sm text-stone-600">
-                {t.keyword}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="flex items-center justify-between mb-6">
         <button
@@ -94,8 +79,47 @@ export function Insights({ journal }: Props) {
       {insights.entries.length === 0 ? (
         <p className="text-stone-400 text-center py-16">這個月還沒有紀錄</p>
       ) : (
-        <div className="space-y-8">
-          <TextInsights insights={insights} />
+        <div className="space-y-5">
+          <div className="card bg-sage-50/70 border-sage-200/60">
+            <p className="text-xs text-sage-600 font-medium mb-2">這個月的我</p>
+            <p className="text-stone-700 leading-relaxed">{insights.summary}</p>
+          </div>
+
+          {insights.emotionCounts.length > 0 && (
+            <Block title="這個月最常出現的情緒">
+              <ResponsiveContainer width="100%" height={Math.max(120, insights.emotionCounts.length * 32)}>
+                <BarChart
+                  data={insights.emotionCounts}
+                  layout="vertical"
+                  margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="emotion"
+                    tick={{ fontSize: 12, fill: '#5c5245' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={48}
+                  />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e8e3da', fontSize: 12 }} />
+                  <Bar dataKey="count" fill={CLAY} radius={[0, 6, 6, 0]} barSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Block>
+          )}
+
+          {insights.recurringThemes.length > 0 && (
+            <Block title="反覆出現的主題">
+              <div className="flex flex-wrap gap-2">
+                {insights.recurringThemes.map((t) => (
+                  <span key={t.keyword} className="rounded-full bg-clay-100 px-3 py-1.5 text-sm text-clay-500">
+                    {t.keyword}
+                  </span>
+                ))}
+              </div>
+            </Block>
+          )}
 
           <AiSection ai={ai} />
 
@@ -108,28 +132,6 @@ export function Insights({ journal }: Props) {
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e8e3da', fontSize: 12 }} />
                 <Line type="monotone" dataKey="mood" stroke={SAGE} strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="各情緒出現次數">
-            <ResponsiveContainer width="100%" height={Math.max(160, insights.emotionCounts.length * 32)}>
-              <BarChart
-                data={insights.emotionCounts}
-                layout="vertical"
-                margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
-              >
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="emotion"
-                  tick={{ fontSize: 12, fill: '#5c5245' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={48}
-                />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e8e3da', fontSize: 12 }} />
-                <Bar dataKey="count" fill={CLAY} radius={[0, 6, 6, 0]} barSize={14} />
-              </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
@@ -152,6 +154,26 @@ export function Insights({ journal }: Props) {
   )
 }
 
+function Block({ title, highlight, children }: { title: string; highlight?: boolean; children: ReactNode }) {
+  return (
+    <div className={highlight ? 'card bg-clay-100/60 border-clay-200/70' : 'card'}>
+      <p className={highlight ? 'text-xs font-medium text-clay-600 mb-2' : 'text-xs font-medium text-stone-500 mb-2'}>
+        {title}
+      </p>
+      {children}
+    </div>
+  )
+}
+
+function AiField({ title, value, highlight }: { title: string; value: string; highlight?: boolean }) {
+  if (!value.trim()) return null
+  return (
+    <Block title={title} highlight={highlight}>
+      <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">{value}</p>
+    </Block>
+  )
+}
+
 function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiMonthlyInsight>> }) {
   const { cached, stale, loading, error, analyze, apiKeyConfigured, progressLabel } = ai
 
@@ -170,9 +192,9 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiMonthlyInsight
   }
 
   return (
-    <div className="card bg-clay-100/40 border-clay-200/60">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-clay-500 font-medium">AI 情緒分析與建議</p>
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-clay-500 font-medium">AI 觀察</p>
         {cached && (
           <button
             type="button"
@@ -193,45 +215,21 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiMonthlyInsight
 
       {loading && !cached && <p className="text-sm text-stone-400 py-2">{progressLabel}</p>}
 
-      {error && <p className="text-sm text-clay-500 mt-2">{error}</p>}
+      {error && <p className="text-sm text-clay-500">{error}</p>}
 
       {cached && (
-        <div className="space-y-3">
+        <>
           {stale && <p className="text-xs text-stone-400">紀錄有更新，這是上次的分析結果</p>}
-          <p className="text-sm text-stone-700 leading-relaxed">{cached.result.emotionAnalysis}</p>
-
-          <div>
-            <p className="text-xs font-medium text-stone-500 mb-1">什麼最容易讓你開心</p>
-            <p className="text-sm text-stone-600 leading-relaxed">{cached.result.happyPatterns}</p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-stone-500 mb-1">什麼最容易讓你焦慮</p>
-            <p className="text-sm text-stone-600 leading-relaxed">{cached.result.anxietyPatterns}</p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-stone-500 mb-1">最近的趨勢</p>
-            <p className="text-sm text-stone-600 leading-relaxed">{cached.result.trend}</p>
-          </div>
-
-          {cached.result.suggestions.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-stone-500 mb-1.5">建議</p>
-              <ul className="space-y-1">
-                {cached.result.suggestions.map((s, i) => (
-                  <li key={i} className="text-sm text-stone-600 leading-relaxed">
-                    · {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <p className="text-sm text-clay-500 italic">{cached.result.encouragement}</p>
-        </div>
+          <AiField title="這個月看見的模式" value={cached.result.patterns} />
+          <AiField title="我真正需要的是什麼" value={cached.result.coreNeed} />
+          <AiField title="什麼最容易消耗我" value={cached.result.whatDrains} />
+          <AiField title="什麼真的讓我恢復" value={cached.result.whatRestores} />
+          <AiField title="這個月有什麼變了" value={cached.result.whatChanged} />
+          <AiField title="最近的我" value={cached.result.recentSelf} />
+          <AiField title="下個月值得觀察的一件事" value={cached.result.nextMonthWatch} highlight />
+        </>
       )}
-    </div>
+    </>
   )
 }
 
@@ -240,60 +238,6 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
     <div className="card">
       <p className="text-sm font-medium text-stone-600 mb-3">{title}</p>
       {children}
-    </div>
-  )
-}
-
-function TextInsights({ insights }: { insights: ReturnType<typeof buildMonthlyInsights> }) {
-  const lines: string[] = []
-
-  if (insights.happyKeywords.length > 0) {
-    lines.push(`什麼最容易讓我開心？　${insights.happyKeywords.map((k) => k.keyword).join('、')}`)
-  }
-  if (insights.upsetKeywords.length > 0) {
-    lines.push(`什麼最容易讓我焦慮／不舒服？　${insights.upsetKeywords.map((k) => k.keyword).join('、')}`)
-  }
-  if (insights.gratefulKeywords.length > 0) {
-    lines.push(`我最常感謝的人事物？　${insights.gratefulKeywords.map((k) => k.keyword).join('、')}`)
-  }
-  // "通常" implies a real pattern — with only a couple of entries this
-  // month, one low-mood day isn't a weekday pattern yet, it's just that
-  // one day. Wait for enough data before claiming one (same spirit as
-  // the trend line below).
-  if (insights.entries.length >= 7 && insights.lowMoodWeekdays.length > 0) {
-    lines.push(`低心情通常出現在？　${insights.lowMoodWeekdays.slice(0, 2).map((w) => w.weekday).join('、')}`)
-  }
-
-  // With too little data, none of the keyword/pattern lines above have
-  // enough repetition to qualify — rather than leaving just the trend
-  // line looking like a near-empty/broken card, say plainly that it's
-  // still accumulating so the emptiness reads as "not yet" rather than
-  // "something's wrong."
-  const hasPatternLines = lines.length > 0
-  if (!hasPatternLines) {
-    lines.push('再多寫幾天，這裡會慢慢出現你的開心、焦慮、感謝關鍵字')
-  }
-
-  const trendText =
-    insights.trend === 'up'
-      ? '最近情緒正在變好 ↗'
-      : insights.trend === 'down'
-        ? '最近情緒有些下滑 ↘，多照顧自己'
-        : insights.trend === 'flat'
-          ? '最近情緒大致平穩 →'
-          : '再累積一些紀錄，就能看出情緒趨勢'
-  lines.push(`最近的情緒趨勢？　${trendText}`)
-
-  return (
-    <div className="card bg-stone-50/70">
-      <p className="text-xs text-stone-500 font-medium mb-3">這個月，我發現…</p>
-      <ul className="space-y-2.5">
-        {lines.map((line, i) => (
-          <li key={i} className="text-sm text-stone-600 leading-relaxed">
-            {line}
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }

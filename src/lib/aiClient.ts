@@ -283,24 +283,32 @@ function serializeEntries(entries: JournalEntry[]): string {
 const WEEKLY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    emotionAnalysis: { type: 'STRING' },
-    stressors: { type: 'ARRAY', items: { type: 'STRING' } },
-    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
-    encouragement: { type: 'STRING' },
+    realEvents: { type: 'STRING' },
+    patterns: { type: 'STRING' },
+    whatHelped: { type: 'STRING' },
+    expectedVsActual: { type: 'STRING' },
+    nextWeekWatch: { type: 'STRING' },
   },
-  required: ['emotionAnalysis', 'stressors', 'suggestions', 'encouragement'],
+  required: ['realEvents', 'patterns', 'whatHelped', 'expectedVsActual', 'nextWeekWatch'],
 }
 
+/** Weekly leans recent — real events and short-window patterns — as
+ * opposed to analyzeMonth, which leans longer-term trends and change.
+ * Same "only say what the entries actually support" discipline as the
+ * daily analysis: any field can come back an empty string when the week
+ * doesn't support it, and the page hides that block rather than showing
+ * forced content. */
 export async function analyzeWeek(entries: JournalEntry[]): Promise<AiWeeklyInsight> {
   const userText = `以下是使用者最近 7 天的日記紀錄（依日期排序）：
 
 ${serializeEntries(entries)}
 
-請根據這些內容分析（字串內容一律繁體中文）：
-- emotionAnalysis：2-3 句話，分析這週的情緒模式與變化
-- stressors：1-3 個這週可能的壓力來源，盡量具體引用紀錄中的內容
-- suggestions：2-4 個具體、可執行的建議，針對這週的情況客製化，不要講空泛的大道理
-- encouragement：1 句給使用者的鼓勵的話`
+請根據這些內容分析（字串內容一律繁體中文，每項約 50-100 字；只根據紀錄裡實際出現的內容，不要腦補，若這週的紀錄真的看不出某一項，該項目請直接回傳空字串，不要硬編內容湊字數）：
+- realEvents（真正影響我的事）：這週真正影響情緒的 1-3 件事，不是逐篇摘要整週內容，只挑真的有影響的
+- patterns（這週看見的模式）：這週是否有重複出現的思考或行為模式，只有真的看得出來才寫，一次最多寫一個，不要下心理疾病或人格診斷
+- whatHelped（什麼讓我變好一點）：這週有沒有什麼具體的事、行為或狀況，讓心情確實有轉好；如果整週都持平或往下，誠實地說沒有明顯讓心情變好的事，不要硬找
+- expectedVsActual（原本擔心 vs 實際發生）：這週有沒有原本擔心、預期的事，最後實際發生的狀況和擔心的不一樣（變好或變糟都算），沒有這種對照就留空
+- nextWeekWatch（下週值得觀察的一件事）：根據這週的內容，給一個下週可以留意、觀察的具體方向或問題，是一個觀察角度，不是待辦清單`
   const raw = await callAi(SYSTEM_PREAMBLE, userText, 2048, WEEKLY_SCHEMA)
   return parseJson<AiWeeklyInsight>(raw)
 }
@@ -446,28 +454,35 @@ export function computeFingerprint(entries: JournalEntry[]): string {
 const MONTHLY_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    emotionAnalysis: { type: 'STRING' },
-    happyPatterns: { type: 'STRING' },
-    anxietyPatterns: { type: 'STRING' },
-    trend: { type: 'STRING' },
-    suggestions: { type: 'ARRAY', items: { type: 'STRING' } },
-    encouragement: { type: 'STRING' },
+    patterns: { type: 'STRING' },
+    coreNeed: { type: 'STRING' },
+    whatDrains: { type: 'STRING' },
+    whatRestores: { type: 'STRING' },
+    whatChanged: { type: 'STRING' },
+    recentSelf: { type: 'STRING' },
+    nextMonthWatch: { type: 'STRING' },
   },
-  required: ['emotionAnalysis', 'happyPatterns', 'anxietyPatterns', 'trend', 'suggestions', 'encouragement'],
+  required: ['patterns', 'coreNeed', 'whatDrains', 'whatRestores', 'whatChanged', 'recentSelf', 'nextMonthWatch'],
 }
 
+/** Monthly leans long-term — trends, core needs, and change across the
+ * whole month — as opposed to analyzeWeek, which leans recent events and
+ * short-window patterns. Same discipline as daily/weekly: any field can
+ * come back an empty string when the month doesn't support it, and the
+ * page hides that block rather than showing forced content. */
 export async function analyzeMonth(entries: JournalEntry[]): Promise<AiMonthlyInsight> {
   const userText = `以下是使用者這個月的日記紀錄（依日期排序）：
 
 ${serializeEntries(entries)}
 
-請根據這些內容分析（字串內容一律繁體中文）：
-- emotionAnalysis：2-3 句話，分析這個月整體的情緒狀態
-- happyPatterns：1-2 句話，這個月什麼樣的事最容易讓使用者開心
-- anxietyPatterns：1-2 句話，這個月什麼樣的事最容易讓使用者焦慮或不舒服
-- trend：1 句話，最近情緒是變好、變差還是持平，並簡短說明原因
-- suggestions：2-4 個具體、可執行的建議，針對這個月的情況客製化
-- encouragement：1 句給使用者的鼓勵的話`
+請根據這些內容分析，著重在較長期的趨勢與變化，而不是單一天發生的小事（字串內容一律繁體中文，每項約 50-100 字；只根據紀錄裡實際出現的內容，不要腦補，若這個月的紀錄真的看不出某一項，該項目請直接回傳空字串，不要硬編內容湊字數）：
+- patterns（這個月看見的模式）：這個月是否有重複出現的思考、情緒或行為模式，一次最多寫一個最明顯的，不要下心理疾病或人格診斷，沒有明顯模式就留空
+- coreNeed（我真正需要的是什麼）：從這個月的內容看，背後反覆出現、真正在意的需求是什麼；不要只回答「安全感」「被愛」這種太籠統的詞，要更具體描述
+- whatDrains（什麼最容易消耗我）：這個月最常讓使用者感到疲憊、低落或耗損的事情或情境類型
+- whatRestores（什麼真的讓我恢復）：這個月真正讓使用者恢復精神或心情變好的事情，只寫紀錄裡真的出現過的，不是通用建議
+- whatChanged（這個月有什麼變了）：跟這個月稍早比起來，月底或最近有什麼確實不一樣的地方（心情、想法、行為都算）；如果沒有明顯變化，直接說大致持平，不要硬找變化
+- recentSelf（最近的我）：只看這個月最後幾天的紀錄，最近的狀態是什麼樣子，可以跟整個月的整體狀態不同
+- nextMonthWatch（下個月值得觀察的一件事）：根據這個月的內容，給下個月一個值得觀察的具體方向，是一個觀察角度，不是待辦清單`
   const raw = await callAi(SYSTEM_PREAMBLE, userText, 3072, MONTHLY_SCHEMA)
   return parseJson<AiMonthlyInsight>(raw)
 }

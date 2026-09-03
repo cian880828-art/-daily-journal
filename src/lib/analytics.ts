@@ -37,22 +37,20 @@ export interface WeeklyReview {
   bestDay: JournalEntry | null
   worstDay: JournalEntry | null
   topEmotions: { emotion: Emotion; count: number }[]
-  happyHighlights: string[]
-  upsetHighlights: string[]
-  gratefulHighlights: string[]
-  recurringThemes: { keyword: string; count: number }[]
   summary: string
 }
 
 export interface MonthlyInsights {
   entries: JournalEntry[]
+  avgMood: number | null
+  bestDay: JournalEntry | null
+  worstDay: JournalEntry | null
+  topEmotions: { emotion: Emotion; count: number }[]
+  summary: string
   dailyMoodSeries: { date: string; label: string; mood: number }[]
   emotionCounts: { emotion: Emotion; count: number }[]
   weeklyAverages: { weekLabel: string; avgMood: number }[]
-  happyKeywords: { keyword: string; count: number }[]
-  upsetKeywords: { keyword: string; count: number }[]
-  gratefulKeywords: { keyword: string; count: number }[]
-  lowMoodWeekdays: { weekday: string; avgMood: number }[]
+  recurringThemes: { keyword: string; count: number }[]
   trend: 'up' | 'down' | 'flat' | 'unknown'
   trendDelta: number | null
 }
@@ -162,61 +160,47 @@ export function buildWeeklyReview(allEntries: JournalEntry[], endKey?: string): 
 
   const topEmotions = countEmotions(days).slice(0, 3)
 
-  const happyHighlights = days.filter((d) => d.happy.trim()).map((d) => d.happy.trim())
-  const upsetHighlights = days.filter((d) => d.upset.trim()).map((d) => d.upset.trim())
-  const gratefulHighlights = days.filter((d) => d.grateful.trim()).map((d) => d.grateful.trim())
-
-  const recurringThemes = extractKeywords(
-    days.flatMap((d) => [d.happy, d.upset, d.proudOf]),
-    5,
-  )
-
-  const summary = buildWeeklySummary({
-    days,
+  const summary = buildPeriodSummary({
+    count: days.length,
     avgMood,
     bestDay,
     worstDay,
     topEmotions,
-    recurringThemes,
+    trend: null,
+    periodLabel: '這週',
+    emptyMessage: '這週還沒有紀錄，從今天開始寫下第一篇也不遲。',
   })
 
-  return {
-    days,
-    avgMood,
-    bestDay,
-    worstDay,
-    topEmotions,
-    happyHighlights,
-    upsetHighlights,
-    gratefulHighlights,
-    recurringThemes,
-    summary,
-  }
+  return { days, avgMood, bestDay, worstDay, topEmotions, summary }
 }
 
-function buildWeeklySummary(input: {
-  days: JournalEntry[]
+/** Shared by the weekly and monthly local (non-AI) "我" summary — both are
+ * the same shape of sentence (mood level, top emotions, best/worst day,
+ * optionally a trend), just over a different window and with different
+ * wording for the period itself. */
+function buildPeriodSummary(input: {
+  count: number
   avgMood: number | null
   bestDay: JournalEntry | null
   worstDay: JournalEntry | null
   topEmotions: { emotion: Emotion; count: number }[]
-  recurringThemes: { keyword: string; count: number }[]
+  trend: 'up' | 'down' | 'flat' | 'unknown' | null
+  periodLabel: string
+  emptyMessage: string
 }): string {
-  const { days, avgMood, bestDay, worstDay, topEmotions, recurringThemes } = input
+  const { count, avgMood, bestDay, worstDay, topEmotions, trend, periodLabel, emptyMessage } = input
 
-  if (days.length === 0) {
-    return '這週還沒有紀錄，從今天開始寫下第一篇也不遲。'
-  }
+  if (count === 0) return emptyMessage
 
   const parts: string[] = []
 
   if (avgMood !== null) {
     if (avgMood >= 7) {
-      parts.push(`這是心情偏好的一週，平均 ${avgMood.toFixed(1)} 分。`)
+      parts.push(`${periodLabel}心情偏好，平均 ${avgMood.toFixed(1)} 分。`)
     } else if (avgMood >= 4.5) {
-      parts.push(`這週心情算平穩，平均 ${avgMood.toFixed(1)} 分，有起有落。`)
+      parts.push(`${periodLabel}心情算平穩，平均 ${avgMood.toFixed(1)} 分，有起有落。`)
     } else {
-      parts.push(`這週心情偏低，平均 ${avgMood.toFixed(1)} 分，辛苦了。`)
+      parts.push(`${periodLabel}心情偏低，平均 ${avgMood.toFixed(1)} 分，辛苦了。`)
     }
   }
 
@@ -230,16 +214,14 @@ function buildWeeklySummary(input: {
     )
   }
 
-  if (recurringThemes.length > 0) {
-    parts.push(`反覆出現的主題有「${recurringThemes.slice(0, 3).map((t) => t.keyword).join('、')}」，或許值得多留意。`)
-  }
+  if (trend === 'up') parts.push('整體來說情緒正在變好 ↗。')
+  else if (trend === 'down') parts.push('整體來說情緒有些下滑 ↘，多照顧自己。')
+  else if (trend === 'flat') parts.push('整體來說情緒大致平穩 →。')
 
-  parts.push(`這週留下了 ${days.length} 篇紀錄，持續認識自己中。`)
+  parts.push(`${periodLabel}留下了 ${count} 篇紀錄，持續認識自己中。`)
 
   return parts.join(' ')
 }
-
-const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 
 export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Date): MonthlyInsights {
   const year = monthStart.getFullYear()
@@ -252,6 +234,16 @@ export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Dat
     })
     .sort((a, b) => (a.date < b.date ? -1 : 1))
 
+  const moods = entries.map((e) => e.mood)
+  const avgMood = average(moods)
+
+  let bestDay: JournalEntry | null = null
+  let worstDay: JournalEntry | null = null
+  for (const e of entries) {
+    if (!bestDay || e.mood > bestDay.mood) bestDay = e
+    if (!worstDay || e.mood < worstDay.mood) worstDay = e
+  }
+
   const dailyMoodSeries = entries.map((e) => ({
     date: e.date,
     label: formatShort(e.date),
@@ -259,6 +251,7 @@ export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Dat
   }))
 
   const emotionCounts = countEmotions(entries)
+  const topEmotions = emotionCounts.slice(0, 3)
 
   // Group into calendar weeks (Sun-Sat) within the month for the weekly
   // average trend.
@@ -277,20 +270,7 @@ export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Dat
     avgMood: Number((average(moods) ?? 0).toFixed(2)),
   }))
 
-  const happyKeywords = extractKeywords(entries.map((e) => e.happy))
-  const upsetKeywords = extractKeywords(entries.map((e) => e.upset))
-  const gratefulKeywords = extractKeywords(entries.map((e) => e.grateful))
-
-  const weekdayBuckets = new Map<number, number[]>()
-  for (const e of entries) {
-    const wd = parseDateKey(e.date).getDay()
-    const bucket = weekdayBuckets.get(wd) ?? []
-    bucket.push(e.mood)
-    weekdayBuckets.set(wd, bucket)
-  }
-  const lowMoodWeekdays = [...weekdayBuckets.entries()]
-    .map(([wd, moods]) => ({ weekday: `週${WEEKDAY_LABELS[wd]}`, avgMood: average(moods) ?? 0 }))
-    .sort((a, b) => a.avgMood - b.avgMood)
+  const recurringThemes = extractKeywords(entries.flatMap((e) => [e.happy, e.upset, e.proudOf, e.grateful]))
 
   let trend: MonthlyInsights['trend'] = 'unknown'
   let trendDelta: number | null = null
@@ -306,15 +286,28 @@ export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Dat
     }
   }
 
+  const summary = buildPeriodSummary({
+    count: entries.length,
+    avgMood,
+    bestDay,
+    worstDay,
+    topEmotions,
+    trend,
+    periodLabel: '這個月',
+    emptyMessage: '這個月還沒有紀錄，從今天開始寫下第一篇也不遲。',
+  })
+
   return {
     entries,
+    avgMood,
+    bestDay,
+    worstDay,
+    topEmotions,
+    summary,
     dailyMoodSeries,
     emotionCounts,
     weeklyAverages,
-    happyKeywords,
-    upsetKeywords,
-    gratefulKeywords,
-    lowMoodWeekdays,
+    recurringThemes,
     trend,
     trendDelta,
   }
@@ -381,13 +374,4 @@ export function findTimeCapsuleEntry(entries: JournalEntry[], endKey: string = t
     }
   }
   return null
-}
-
-/** Recurring themes over a longer window than a single month — the same
- * extraction as monthly Insights, just over more history, so patterns
- * that only show up across seasons (not within one month) surface too. */
-export function buildLongTermThemes(entries: JournalEntry[], windowDays = 90) {
-  const window = new Set(lastNDays(windowDays))
-  const windowed = entries.filter((e) => window.has(e.date))
-  return extractKeywords(windowed.flatMap((e) => [e.happy, e.upset, e.proudOf, e.grateful]), 8, 3)
 }

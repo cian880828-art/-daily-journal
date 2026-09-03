@@ -14,19 +14,21 @@ export interface AiPromptInsight {
 }
 
 export interface AiWeeklyInsight {
-  emotionAnalysis: string
-  stressors: string[]
-  suggestions: string[]
-  encouragement: string
+  realEvents: string
+  patterns: string
+  whatHelped: string
+  expectedVsActual: string
+  nextWeekWatch: string
 }
 
 export interface AiMonthlyInsight {
-  emotionAnalysis: string
-  happyPatterns: string
-  anxietyPatterns: string
-  trend: string
-  suggestions: string[]
-  encouragement: string
+  patterns: string
+  coreNeed: string
+  whatDrains: string
+  whatRestores: string
+  whatChanged: string
+  recentSelf: string
+  nextMonthWatch: string
 }
 
 export interface CachedAiInsight<T> {
