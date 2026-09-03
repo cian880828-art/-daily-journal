@@ -6,6 +6,11 @@ export interface AiDailyInsight {
   innerPattern: string
   reframe: string
   nextStep: string
+  /** Which technique category each nextStep idea draws from (e.g.
+   * "延遲反應", "記錄觸發點") — not shown in the UI, only fed back into
+   * future days' prompts so nextStep stops repeating the same handful of
+   * ideas in different words. */
+  nextStepCategories: string[]
 }
 
 export interface AiPromptInsight {

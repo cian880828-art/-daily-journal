@@ -165,6 +165,7 @@ export function buildWeeklyReview(allEntries: JournalEntry[], endKey?: string): 
 
   const summary = buildPeriodSummary({
     count: days.length,
+    moods,
     avgMood,
     bestDay,
     worstDay,
@@ -192,11 +193,12 @@ export function buildWeeklyReview(allEntries: JournalEntry[], endKey?: string): 
 }
 
 /** Shared by the weekly and monthly local (non-AI) "我" summary — both are
- * the same shape of sentence (mood level, top emotions, best/worst day,
- * optionally a trend), just over a different window and with different
- * wording for the period itself. */
+ * the same shape of sentence (mood level or volatility, top emotions,
+ * best/worst day, optionally a trend), just over a different window and
+ * with different wording for the period itself. */
 function buildPeriodSummary(input: {
   count: number
+  moods: number[]
   avgMood: number | null
   bestDay: JournalEntry | null
   worstDay: JournalEntry | null
@@ -205,17 +207,32 @@ function buildPeriodSummary(input: {
   periodLabel: string
   emptyMessage: string
 }): string {
-  const { count, avgMood, bestDay, worstDay, topEmotions, trend, periodLabel, emptyMessage } = input
+  const { count, moods, avgMood, bestDay, worstDay, topEmotions, trend, periodLabel, emptyMessage } = input
 
   if (count === 0) return emptyMessage
 
   const parts: string[] = []
 
-  if (avgMood !== null) {
+  // The average alone can't tell "genuinely steady" apart from "swung
+  // between very low and very high and happened to average out to the
+  // middle" — a 2-then-9 week is not "平穩", it's volatile, and describing
+  // it by its average alone would say the opposite of what happened.
+  // Volatility takes priority over the level-based description below
+  // whenever the swing itself is the more accurate story.
+  const range = moods.length > 0 ? Math.max(...moods) - Math.min(...moods) : 0
+  const stdDev =
+    moods.length >= 2
+      ? Math.sqrt(moods.reduce((sum, m) => sum + (m - (avgMood ?? 0)) ** 2, 0) / moods.length)
+      : 0
+  const isVolatile = moods.length >= 2 && (stdDev >= 2 || range >= 5)
+
+  if (isVolatile) {
+    parts.push(`${periodLabel}心情起伏較大，最高 ${Math.max(...moods)} 分、最低 ${Math.min(...moods)} 分，忽高忽低。`)
+  } else if (avgMood !== null) {
     if (avgMood >= 7) {
       parts.push(`${periodLabel}心情偏好，平均 ${avgMood.toFixed(1)} 分。`)
     } else if (avgMood >= 4.5) {
-      parts.push(`${periodLabel}心情算平穩，平均 ${avgMood.toFixed(1)} 分，有起有落。`)
+      parts.push(`${periodLabel}心情算平穩，平均 ${avgMood.toFixed(1)} 分。`)
     } else {
       parts.push(`${periodLabel}心情偏低，平均 ${avgMood.toFixed(1)} 分，辛苦了。`)
     }
@@ -305,6 +322,7 @@ export function buildMonthlyInsights(allEntries: JournalEntry[], monthStart: Dat
 
   const summary = buildPeriodSummary({
     count: entries.length,
+    moods,
     avgMood,
     bestDay,
     worstDay,

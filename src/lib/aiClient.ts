@@ -323,9 +323,41 @@ const DAILY_SCHEMA = {
     innerPattern: { type: 'STRING' },
     reframe: { type: 'STRING' },
     nextStep: { type: 'STRING' },
+    nextStepCategories: { type: 'ARRAY', items: { type: 'STRING' } },
   },
-  required: ['coreEvents', 'emotionBreakdown', 'underlyingNeeds', 'coreWound', 'innerPattern', 'reframe', 'nextStep'],
+  required: [
+    'coreEvents',
+    'emotionBreakdown',
+    'underlyingNeeds',
+    'coreWound',
+    'innerPattern',
+    'reframe',
+    'nextStep',
+    'nextStepCategories',
+  ],
 }
+
+/** Fixed vocabulary for nextStep's technique category, tracked per day so
+ * repetition can be detected and blocked by category rather than by
+ * comparing free-text prose similarity (which weaker models are bad at
+ * self-policing). */
+const NEXT_STEP_CATEGORIES = [
+  '延遲反應',
+  '記錄觸發點',
+  '預期 vs 實際結果比較',
+  '事實／推論拆分',
+  '行為實驗',
+  '對照測試',
+  '優先級分類',
+  '控制圈分類',
+  '界線測試',
+  '決策拆解',
+  '需求辨識',
+  '情緒強度評分',
+  '自己 vs 他人標準比較',
+  '找出第一個自動想法',
+  '找出真正害怕的結果',
+]
 
 /** This app's persona for the daily breakdown specifically — deliberately
  * separate from SYSTEM_PREAMBLE (used by weekly/monthly/prompt), which
@@ -362,15 +394,21 @@ function recentEntriesBefore(entries: JournalEntry[], beforeDate: string, days: 
     .sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
-/** The "明天可以試試看" suggestion from each of the last `days` days that
- * already has a cached AI result — read straight from the local AI-result
- * cache (no extra API calls) and fed back into the prompt so today's
- * suggestion doesn't just repeat one already given earlier in the week. */
-function recentNextSteps(beforeDate: string, days: number): { date: string; nextStep: string }[] {
-  const out: { date: string; nextStep: string }[] = []
+/** The "明天可以試試看" suggestion (and its technique categories) from each
+ * of the last `days` days that already has a cached AI result — read
+ * straight from the local AI-result cache (no extra API calls) and fed
+ * back into the prompt so today's suggestion doesn't just repeat one
+ * already given earlier in the week. */
+function recentNextSteps(
+  beforeDate: string,
+  days: number,
+): { date: string; nextStep: string; categories: string[] }[] {
+  const out: { date: string; nextStep: string; categories: string[] }[] = []
   for (const date of lastNDays(days, addDays(beforeDate, -1))) {
     const cached = readCachedInsight<AiDailyInsight>(`daily:${date}`)
-    if (cached?.result.nextStep) out.push({ date, nextStep: cached.result.nextStep })
+    if (cached?.result.nextStep) {
+      out.push({ date, nextStep: cached.result.nextStep, categories: cached.result.nextStepCategories ?? [] })
+    }
   }
   return out
 }
@@ -387,11 +425,17 @@ ${serializeEntries(history)}
 只有當同一種情緒、觸發事件或需求，在這些紀錄中至少出現 2-3 次以上，才可以在分析中描述為「反覆出現的模式」；如果只出現一次，不要說是模式，也不要因為一天的紀錄就建立長期人格結論。`
     : '目前沒有足夠的過去紀錄可以參考——如果需要提到模式，請直接說今天的紀錄還不足以判斷是否為固定模式。'
 
+  const usedCategories = [...new Set(pastNextSteps.flatMap((s) => s.categories))]
+  const availableCategories = NEXT_STEP_CATEGORIES.filter((c) => !usedCategories.includes(c))
+
   const pastSuggestionsBlock = pastNextSteps.length
-    ? `以下是最近幾天「明天可以試試看」已經用過的方法：
-${pastNextSteps.map((s) => `- ${s.date}：${s.nextStep}`).join('\n')}
-除非今天有非常明確的理由需要再次練習同一個方法，否則這次 nextStep 的 3 個方法請盡量換成不同形式（例如：延遲反應、記錄觸發點、預期 vs 實際結果比較、事實／推論拆分、行為實驗、對照測試、優先級分類、控制圈分類、界線測試、決策拆解、需求辨識、情緒強度評分、自己 vs 他人標準比較、找出第一個自動想法、找出真正害怕的結果），不要只是換句話說同一件事。`
+    ? `以下是最近幾天「明天可以試試看」已經用過的方法，僅供參考，內容本身不要重複或只是換句話說：
+${pastNextSteps.map((s) => `- ${s.date}：${s.nextStep}`).join('\n')}`
     : ''
+
+  const categoryConstraintBlock = usedCategories.length
+    ? `nextStepCategories 這次「不可以」使用以下最近 7 天已經用過的類別：${usedCategories.join('、')}。請從其餘類別中選（可選：${(availableCategories.length ? availableCategories : NEXT_STEP_CATEGORIES).join('、')}）。除非今天的內容有非常明確的理由必須再次練習同一類別，否則不得重複。`
+    : `nextStepCategories 請從以下清單中選擇最符合今天內容的類別：${NEXT_STEP_CATEGORIES.join('、')}。`
 
   const userText = `${historyBlock}
 
@@ -416,6 +460,8 @@ ${serializeEntries([entry])}
 6. reframe（換個角度看）：提供一個使用者可能沒有想到的角度，不一定要正面，目的是增加新的理解，不是讓使用者「想開」；不要硬把事情包裝成「這其實是一件好事」，如果真的沒有新角度，可以直接說資料不足
 
 7. nextStep（明天可以試試看）：給 3 個具體的小行動或小實驗，每一點獨立一行（用換行分開，格式類似「1. ...\n2. ...\n3. ...」），都必須直接對應今天最重要的問題或模式，且符合：24 小時內可以完成、可以觀察結果、有明確行為、通常不超過 10-20 分鐘、做完後能得到新的資訊——不是為了叫使用者變正面，也不是單純舒壓，而是幫助理解自己或改變一個小反應。除非和今天的問題高度相關，否則避免「寫感恩/開心的事」「散步」「深呼吸」「找朋友聊天」「和伴侶分享感受」「好好休息」這類籠統建議
+
+另外請填寫 nextStepCategories（陣列，對應 nextStep 三個方法各自的技巧類別，一個方法一個類別）。${categoryConstraintBlock}
 
 如果今天其實過得很好、沒有明顯問題，就單純分析為什麼今天好，不需要挖出隱藏問題，coreWound 可以直接說明今天心情穩定、正向。`
 
