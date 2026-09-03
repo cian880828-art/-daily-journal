@@ -1,5 +1,15 @@
 import { getCurrentUserId, supabase, withTimeout } from './supabaseClient'
-import { type AiProvider, getApiKey, getModel, getProvider, setApiKey, setModel, setProvider } from './aiSettings'
+import {
+  type AiProvider,
+  getApiKey,
+  getModel,
+  getProvider,
+  getUserContext,
+  setApiKey,
+  setModel,
+  setProvider,
+  setUserContext,
+} from './aiSettings'
 
 interface AiSettingsRow {
   provider: string
@@ -7,6 +17,7 @@ interface AiSettingsRow {
   gemini_model: string
   groq_api_key: string
   groq_model: string
+  user_context: string
 }
 
 /** Pulls this account's saved AI settings (if any) down into this
@@ -27,6 +38,7 @@ export async function syncAiSettingsFromCloud(): Promise<void> {
   if (row.gemini_model) setModel(row.gemini_model, 'gemini')
   if (row.groq_api_key) setApiKey(row.groq_api_key, 'groq')
   if (row.groq_model) setModel(row.groq_model, 'groq')
+  if (row.user_context) setUserContext(row.user_context)
 }
 
 /** Pushes this device's current AI settings up to the cloud — called
@@ -45,6 +57,7 @@ export async function saveAiSettingsToCloud(): Promise<void> {
         gemini_model: getModel('gemini'),
         groq_api_key: getApiKey('groq'),
         groq_model: getModel('groq'),
+        user_context: getUserContext(),
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' },

@@ -82,8 +82,13 @@ create table if not exists ai_settings (
   gemini_model text not null default '',
   groq_api_key text not null default '',
   groq_model text not null default '',
+  user_context text not null default '',
   updated_at timestamptz not null default now()
 );
+
+-- Added after the table already existed in production — `create table if
+-- not exists` above is a no-op there, so this covers upgrading it.
+alter table ai_settings add column if not exists user_context text not null default '';
 
 alter table ai_settings enable row level security;
 

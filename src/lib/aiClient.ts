@@ -1,7 +1,7 @@
 import type { JournalEntry } from '../types/journal'
 import type { AiDailyInsight, AiMonthlyInsight, AiPromptInsight, AiWeeklyInsight } from '../types/aiInsight'
 import { addDays, formatDateLabel, lastNDays } from './dateUtils'
-import { getApiKey, getModel, getProvider } from './aiSettings'
+import { getApiKey, getModel, getProvider, getUserContext } from './aiSettings'
 import { readCachedInsight } from './useAiInsight'
 
 /** Thin clients for the supported AI providers (Gemini, Groq), called
@@ -280,6 +280,19 @@ function serializeEntries(entries: JournalEntry[]): string {
     .join('\n---\n')
 }
 
+/** The free-text personal background the user optionally entered in
+ * Settings, formatted as context for every analyze* prompt — empty string
+ * when nothing's been entered, so callers can just prepend this without
+ * an extra branch. */
+function userContextBlock(): string {
+  const context = getUserContext()
+  if (!context) return ''
+  return `使用者提供的個人背景資訊（用來幫助理解上下文，不要在分析中逐字複述，也不要主動提起，除非真的直接相關）：
+${context}
+
+`
+}
+
 const WEEKLY_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -299,7 +312,7 @@ const WEEKLY_SCHEMA = {
  * doesn't support it, and the page hides that block rather than showing
  * forced content. */
 export async function analyzeWeek(entries: JournalEntry[]): Promise<AiWeeklyInsight> {
-  const userText = `以下是使用者最近 7 天的日記紀錄（依日期排序）：
+  const userText = `${userContextBlock()}以下是使用者最近 7 天的日記紀錄（依日期排序）：
 
 ${serializeEntries(entries)}
 
@@ -437,7 +450,7 @@ ${pastNextSteps.map((s) => `- ${s.date}：${s.nextStep}`).join('\n')}`
     ? `nextStepCategories 這次「不可以」使用以下最近 7 天已經用過的類別：${usedCategories.join('、')}。請從其餘類別中選（可選：${(availableCategories.length ? availableCategories : NEXT_STEP_CATEGORIES).join('、')}）。除非今天的內容有非常明確的理由必須再次練習同一類別，否則不得重複。`
     : `nextStepCategories 請從以下清單中選擇最符合今天內容的類別：${NEXT_STEP_CATEGORIES.join('、')}。`
 
-  const userText = `${historyBlock}
+  const userText = `${userContextBlock()}${historyBlock}
 
 ${pastSuggestionsBlock}
 
@@ -479,7 +492,7 @@ const PROMPT_INSIGHT_SCHEMA = {
 }
 
 export async function analyzePrompt(question: string, answer: string): Promise<AiPromptInsight> {
-  const userText = `使用者今天回答了一個自我覺察問題：
+  const userText = `${userContextBlock()}使用者今天回答了一個自我覺察問題：
 
 問題：${question}
 回答：${answer}
@@ -517,7 +530,7 @@ const MONTHLY_SCHEMA = {
  * come back an empty string when the month doesn't support it, and the
  * page hides that block rather than showing forced content. */
 export async function analyzeMonth(entries: JournalEntry[]): Promise<AiMonthlyInsight> {
-  const userText = `以下是使用者這個月的日記紀錄（依日期排序）：
+  const userText = `${userContextBlock()}以下是使用者這個月的日記紀錄（依日期排序）：
 
 ${serializeEntries(entries)}
 

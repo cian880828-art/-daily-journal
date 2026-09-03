@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
+import { AutoGrowTextarea } from '../components/AutoGrowTextarea'
 import {
   DEFAULT_MODELS,
   type AiProvider,
   getApiKey,
   getModel,
   getProvider,
+  getUserContext,
   setApiKey,
   setModel,
   setProvider,
+  setUserContext,
 } from '../lib/aiSettings'
 import { testConnection } from '../lib/aiClient'
 import { exportBackup, importBackup } from '../lib/backup'
@@ -23,6 +26,7 @@ const PROVIDERS: { id: AiProvider; label: string }[] = [
 
 export function Settings() {
   const { user, signOut } = useAuth()
+  const [userContext, setUserContextInput] = useState(getUserContext())
   const [provider, setProviderInput] = useState<AiProvider>(getProvider())
   const [apiKey, setApiKeyInput] = useState(getApiKey(provider))
   const [model, setModelInput] = useState(getModel(provider))
@@ -111,6 +115,7 @@ export function Settings() {
     setProvider(provider)
     setApiKey(apiKey, provider)
     setModel(model, provider)
+    setUserContext(userContext)
     setSaved(true)
     setTestState('idle')
     setTimeout(() => setSaved(false), 1800)
@@ -144,6 +149,23 @@ export function Settings() {
         <button type="button" onClick={() => signOut()} className="btn-secondary">
           登出
         </button>
+      </div>
+
+      <div className="mb-6">
+        <label className="field-label" htmlFor="user-context">
+          個人背景
+        </label>
+        <AutoGrowTextarea
+          id="user-context"
+          value={userContext}
+          onChange={(e) => setUserContextInput(e.target.value)}
+          placeholder="例如：年齡、職業、感情狀態、目前在意的事——AI 分析時會參考這些背景，不用每次在日記裡重複說明"
+          rows={3}
+          className="field-textarea"
+        />
+        <p className="text-xs text-stone-400 mt-2 leading-relaxed">
+          這段文字只會存在你的帳號裡，AI 分析每天／每週／每月的紀錄時會參考它來理解上下文，不會逐字複述在分析結果裡。
+        </p>
       </div>
 
       <div className="mb-6">

@@ -8,6 +8,7 @@
 export type AiProvider = 'gemini' | 'groq'
 
 const PROVIDER_STORAGE_KEY = 'daily-journal:ai:provider'
+const USER_CONTEXT_STORAGE_KEY = 'daily-journal:ai:user-context'
 
 const API_KEY_STORAGE_KEYS: Record<AiProvider, string> = {
   gemini: 'daily-journal:ai:gemini-api-key',
@@ -81,5 +82,26 @@ export function setModel(model: string, provider: AiProvider = getProvider()): v
     localStorage.setItem(MODEL_STORAGE_KEYS[provider], trimmed)
   } else {
     localStorage.removeItem(MODEL_STORAGE_KEYS[provider])
+  }
+}
+
+/** Free-text personal context (age, occupation, relationships, anything
+ * the user wants the AI to already know) — shared across both providers,
+ * included in every analyze* prompt so the model doesn't start from zero
+ * each time. */
+export function getUserContext(): string {
+  try {
+    return localStorage.getItem(USER_CONTEXT_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function setUserContext(context: string): void {
+  const trimmed = context.trim()
+  if (trimmed) {
+    localStorage.setItem(USER_CONTEXT_STORAGE_KEY, trimmed)
+  } else {
+    localStorage.removeItem(USER_CONTEXT_STORAGE_KEY)
   }
 }
