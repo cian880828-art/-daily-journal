@@ -38,6 +38,9 @@ export interface WeeklyReview {
   worstDay: JournalEntry | null
   topEmotions: { emotion: Emotion; count: number }[]
   summary: string
+  happyHighlights: string[]
+  upsetHighlights: string[]
+  gratefulHighlights: string[]
 }
 
 export interface MonthlyInsights {
@@ -171,7 +174,21 @@ export function buildWeeklyReview(allEntries: JournalEntry[], endKey?: string): 
     emptyMessage: '這週還沒有紀錄，從今天開始寫下第一篇也不遲。',
   })
 
-  return { days, avgMood, bestDay, worstDay, topEmotions, summary }
+  const happyHighlights = days.filter((d) => d.happy.trim()).map((d) => d.happy.trim())
+  const upsetHighlights = days.filter((d) => d.upset.trim()).map((d) => d.upset.trim())
+  const gratefulHighlights = days.filter((d) => d.grateful.trim()).map((d) => d.grateful.trim())
+
+  return {
+    days,
+    avgMood,
+    bestDay,
+    worstDay,
+    topEmotions,
+    summary,
+    happyHighlights,
+    upsetHighlights,
+    gratefulHighlights,
+  }
 }
 
 /** Shared by the weekly and monthly local (non-AI) "我" summary — both are

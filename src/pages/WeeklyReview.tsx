@@ -47,9 +47,28 @@ export function WeeklyReview({ journal }: Props) {
           )}
 
           <AiSection ai={ai} />
+
+          <HighlightList title="這週讓我開心的事情" items={review.happyHighlights} />
+          <HighlightList title="這週讓我不舒服的事情" items={review.upsetHighlights} />
+          <HighlightList title="這週我最常感謝的事情" items={review.gratefulHighlights} />
         </div>
       )}
     </div>
+  )
+}
+
+function HighlightList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null
+  return (
+    <Block title={title}>
+      <ul className="space-y-2">
+        {items.map((item, i) => (
+          <li key={i} className="text-sm text-stone-600 leading-relaxed">
+            · {item}
+          </li>
+        ))}
+      </ul>
+    </Block>
   )
 }
 
