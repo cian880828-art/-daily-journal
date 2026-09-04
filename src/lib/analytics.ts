@@ -220,21 +220,31 @@ function buildPeriodSummary(input: {
   // Volatility takes priority over the level-based description below
   // whenever the swing itself is the more accurate story.
   //
-  // Overall spread (range/stddev) alone can still miss a sharp back-to-back
-  // swing — e.g. Monday bad, Tuesday great, then a calmer rest of the week —
-  // because that one adjacent jump gets diluted once averaged against every
-  // other day. `moods` is already in chronological order, so also check the
-  // single biggest day-to-day jump directly.
+  // But a swing needs a *reversal* to count as volatile — 4 then 6 then 8
+  // is a steady climb (a trend), not "起伏大", even though the day-to-day
+  // jumps are just as big as 4-8-4 (which genuinely is back-and-forth).
+  // `moods` is already in chronological order, so walk consecutive deltas
+  // to tell "kept moving the same direction" apart from "reversed".
   const range = moods.length > 0 ? Math.max(...moods) - Math.min(...moods) : 0
   const stdDev =
     moods.length >= 2
       ? Math.sqrt(moods.reduce((sum, m) => sum + (m - (avgMood ?? 0)) ** 2, 0) / moods.length)
       : 0
-  const maxAdjacentSwing = moods.slice(1).reduce((max, m, i) => Math.max(max, Math.abs(m - moods[i])), 0)
-  const isVolatile = moods.length >= 2 && (stdDev >= 2 || range >= 5 || maxAdjacentSwing >= 4)
+  const deltas = moods.slice(1).map((m, i) => m - moods[i])
+  const maxAdjacentSwing = deltas.reduce((max, d) => Math.max(max, Math.abs(d)), 0)
+  const hasIncrease = deltas.some((d) => d > 0)
+  const hasDecrease = deltas.some((d) => d < 0)
+  const isReversal = hasIncrease && hasDecrease && maxAdjacentSwing >= 4
+  const isVolatile = moods.length >= 2 && (isReversal || stdDev >= 2 || range >= 5)
+  const netChange = moods.length >= 2 ? moods[moods.length - 1] - moods[0] : 0
+  const isMonotonicTrend = !isVolatile && hasIncrease !== hasDecrease && Math.abs(netChange) >= 3
 
   if (isVolatile) {
     parts.push(`${periodLabel}心情起伏較大，最高 ${Math.max(...moods)} 分、最低 ${Math.min(...moods)} 分，忽高忽低。`)
+  } else if (isMonotonicTrend && hasIncrease) {
+    parts.push(`${periodLabel}心情持續往上，從 ${moods[0]} 分到 ${moods[moods.length - 1]} 分，越來越好。`)
+  } else if (isMonotonicTrend && hasDecrease) {
+    parts.push(`${periodLabel}心情持續往下，從 ${moods[0]} 分掉到 ${moods[moods.length - 1]} 分，多留意自己。`)
   } else if (avgMood !== null) {
     if (avgMood >= 7) {
       parts.push(`${periodLabel}心情偏好，平均 ${avgMood.toFixed(1)} 分。`)
