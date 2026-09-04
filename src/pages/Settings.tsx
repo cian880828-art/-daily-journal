@@ -166,6 +166,9 @@ export function Settings() {
         <p className="text-xs text-stone-400 mt-2 leading-relaxed">
           這段文字只會存在你的帳號裡，AI 分析每天／每週／每月的紀錄時會參考它來理解上下文，不會逐字複述在分析結果裡。
         </p>
+        <button type="button" onClick={handleSave} className="btn-secondary mt-3">
+          {saved ? '已儲存 ♡' : '儲存背景'}
+        </button>
       </div>
 
       <div className="mb-6">
