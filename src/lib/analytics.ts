@@ -219,12 +219,19 @@ function buildPeriodSummary(input: {
   // it by its average alone would say the opposite of what happened.
   // Volatility takes priority over the level-based description below
   // whenever the swing itself is the more accurate story.
+  //
+  // Overall spread (range/stddev) alone can still miss a sharp back-to-back
+  // swing — e.g. Monday bad, Tuesday great, then a calmer rest of the week —
+  // because that one adjacent jump gets diluted once averaged against every
+  // other day. `moods` is already in chronological order, so also check the
+  // single biggest day-to-day jump directly.
   const range = moods.length > 0 ? Math.max(...moods) - Math.min(...moods) : 0
   const stdDev =
     moods.length >= 2
       ? Math.sqrt(moods.reduce((sum, m) => sum + (m - (avgMood ?? 0)) ** 2, 0) / moods.length)
       : 0
-  const isVolatile = moods.length >= 2 && (stdDev >= 2 || range >= 5)
+  const maxAdjacentSwing = moods.slice(1).reduce((max, m, i) => Math.max(max, Math.abs(m - moods[i])), 0)
+  const isVolatile = moods.length >= 2 && (stdDev >= 2 || range >= 5 || maxAdjacentSwing >= 4)
 
   if (isVolatile) {
     parts.push(`${periodLabel}心情起伏較大，最高 ${Math.max(...moods)} 分、最低 ${Math.min(...moods)} 分，忽高忽低。`)
