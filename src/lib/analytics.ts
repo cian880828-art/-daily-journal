@@ -234,7 +234,7 @@ function buildPeriodSummary(input: {
   const maxAdjacentSwing = deltas.reduce((max, d) => Math.max(max, Math.abs(d)), 0)
   const hasIncrease = deltas.some((d) => d > 0)
   const hasDecrease = deltas.some((d) => d < 0)
-  const isReversal = hasIncrease && hasDecrease && maxAdjacentSwing >= 4
+  const isReversal = hasIncrease && hasDecrease && maxAdjacentSwing >= 3
   const isVolatile = moods.length >= 2 && (isReversal || stdDev >= 2 || range >= 5)
   const netChange = moods.length >= 2 ? moods[moods.length - 1] - moods[0] : 0
   const isMonotonicTrend = !isVolatile && hasIncrease !== hasDecrease && Math.abs(netChange) >= 3
