@@ -155,69 +155,88 @@ async function callGroq(systemInstruction: string, userText: string, maxOutputTo
   }
   const model = getModel('groq')
 
-  const TIMEOUT_MS = 30_000
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  // Groq's json_object mode validates server-side that the model's raw
+  // output actually parses as JSON, and rejects the request with a 400
+  // ("Failed to validate JSON...") if it doesn't — this happens
+  // occasionally and non-deterministically with smaller models, so one
+  // retry (a fresh generation, not a resend of the same broken output)
+  // resolves it far more often than not.
+  const MAX_ATTEMPTS = 2
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const TIMEOUT_MS = 30_000
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
-  let response: Response
-  try {
-    response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.6,
-        max_tokens: maxOutputTokens,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: userText },
-        ],
-      }),
-    })
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new AiRequestError('連線逾時，請確認網路連線後再試一次。')
-    }
-    throw new AiRequestError(
-      '無法連線到 Groq API。這可能是網路問題，也可能是 Groq 不允許瀏覽器直接呼叫（CORS）——如果一直發生，建議改回 Gemini。',
-    )
-  } finally {
-    clearTimeout(timeoutId)
-  }
-
-  if (!response.ok) {
-    let message = `Groq API 回應錯誤（HTTP ${response.status}）`
+    let response: Response
     try {
-      const errBody = await response.json()
-      if (errBody?.error?.message) message = errBody.error.message
-    } catch {
-      // keep default message
+      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.6,
+          max_tokens: maxOutputTokens,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userText },
+          ],
+        }),
+      })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new AiRequestError('連線逾時，請確認網路連線後再試一次。')
+      }
+      throw new AiRequestError(
+        '無法連線到 Groq API。這可能是網路問題，也可能是 Groq 不允許瀏覽器直接呼叫（CORS）——如果一直發生，建議改回 Gemini。',
+      )
+    } finally {
+      clearTimeout(timeoutId)
     }
-    if (response.status === 401 || response.status === 403) {
-      throw new AiConfigError(`API Key 可能不正確或沒有權限：${message}`)
+
+    if (!response.ok) {
+      let message = `Groq API 回應錯誤（HTTP ${response.status}）`
+      let isJsonValidationFailure = false
+      try {
+        const errBody = await response.json()
+        if (errBody?.error?.message) message = errBody.error.message
+        isJsonValidationFailure = message.includes('Failed to validate JSON')
+      } catch {
+        // keep default message
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new AiConfigError(`API Key 可能不正確或沒有權限：${message}`)
+      }
+      if (response.status === 429) {
+        throw new AiRequestError('已達免費額度的速率限制，請稍後再試一次。')
+      }
+      if (isJsonValidationFailure) {
+        if (attempt < MAX_ATTEMPTS) continue
+        throw new AiRequestError('AI 這次沒有回傳正確格式的內容，請再按一次「重新分析」——Groq 偶爾會這樣，重試通常就會正常。')
+      }
+      throw new AiRequestError(message)
     }
-    if (response.status === 429) {
-      throw new AiRequestError('已達免費額度的速率限制，請稍後再試一次。')
+
+    const data = await response.json()
+    const finishReason = data?.choices?.[0]?.finish_reason
+    const text: string = data?.choices?.[0]?.message?.content ?? ''
+
+    if (!text.trim()) {
+      if (finishReason === 'length') {
+        throw new AiRequestError('這次分析的內容太長被截斷了，請再試一次。')
+      }
+      throw new AiRequestError('Groq 沒有回傳內容，請再試一次。')
     }
-    throw new AiRequestError(message)
+    return text
   }
 
-  const data = await response.json()
-  const finishReason = data?.choices?.[0]?.finish_reason
-  const text: string = data?.choices?.[0]?.message?.content ?? ''
-
-  if (!text.trim()) {
-    if (finishReason === 'length') {
-      throw new AiRequestError('這次分析的內容太長被截斷了，請再試一次。')
-    }
-    throw new AiRequestError('Groq 沒有回傳內容，請再試一次。')
-  }
-  return text
+  // Unreachable — the loop always returns or throws — but keeps TypeScript
+  // happy about every code path returning a value.
+  throw new AiRequestError('AI 分析失敗，請再試一次。')
 }
 
 function parseJson<T>(raw: string): T {
