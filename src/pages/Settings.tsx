@@ -2,15 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { AutoGrowTextarea } from '../components/AutoGrowTextarea'
 import {
-  DEFAULT_MODELS,
-  type AiProvider,
+  DEFAULT_MODEL,
   getApiKey,
   getModel,
-  getProvider,
   getUserContext,
   setApiKey,
   setModel,
-  setProvider,
   setUserContext,
 } from '../lib/aiSettings'
 import { testConnection } from '../lib/aiClient'
@@ -19,17 +16,11 @@ import { saveAiSettingsToCloud } from '../lib/supabaseAiSettings'
 import { disableReminders, enableReminders, getCurrentSubscription, isPushSupported } from '../lib/pushNotifications'
 import { useAuth } from '../lib/useAuth'
 
-const PROVIDERS: { id: AiProvider; label: string }[] = [
-  { id: 'gemini', label: 'Google Gemini' },
-  { id: 'groq', label: 'Groq' },
-]
-
 export function Settings() {
   const { user, signOut } = useAuth()
   const [userContext, setUserContextInput] = useState(getUserContext())
-  const [provider, setProviderInput] = useState<AiProvider>(getProvider())
-  const [apiKey, setApiKeyInput] = useState(getApiKey(provider))
-  const [model, setModelInput] = useState(getModel(provider))
+  const [apiKey, setApiKeyInput] = useState(getApiKey())
+  const [model, setModelInput] = useState(getModel())
   const [saved, setSaved] = useState(false)
   const [testState, setTestState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [testMessage, setTestMessage] = useState('')
@@ -104,17 +95,9 @@ export function Settings() {
     }
   }
 
-  function handleProviderChange(next: AiProvider) {
-    setProviderInput(next)
-    setApiKeyInput(getApiKey(next))
-    setModelInput(getModel(next))
-    setTestState('idle')
-  }
-
   function handleSave() {
-    setProvider(provider)
-    setApiKey(apiKey, provider)
-    setModel(model, provider)
+    setApiKey(apiKey)
+    setModel(model)
     setUserContext(userContext)
     setSaved(true)
     setTestState('idle')
@@ -123,9 +106,8 @@ export function Settings() {
   }
 
   async function handleTest() {
-    setProvider(provider)
-    setApiKey(apiKey, provider)
-    setModel(model, provider)
+    setApiKey(apiKey)
+    setModel(model)
     setTestState('testing')
     setTestMessage('')
     try {
@@ -171,36 +153,10 @@ export function Settings() {
         </button>
       </div>
 
-      <div className="mb-6">
-        <label className="field-label">AI 服務</label>
-        <div className="grid grid-cols-2 gap-3">
-          {PROVIDERS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => handleProviderChange(p.id)}
-              className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                provider === p.id
-                  ? 'border-sage-300 bg-sage-50 text-sage-700'
-                  : 'border-stone-200 bg-white/80 text-stone-500'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {provider === 'groq' && (
-          <p className="text-xs text-stone-400 mt-2 leading-relaxed">
-            Groq 是否能從瀏覽器直接呼叫還沒有把握（多數 API 服務是設計給伺服器用的），先儲存並按「測試連線」在你的裝置上實際確認看看；不行的話切回
-            Gemini 就好，不影響已經存的紀錄。
-          </p>
-        )}
-      </div>
-
       <div className="card mb-6 space-y-4">
         <div>
           <label className="field-label" htmlFor="api-key">
-            {provider === 'groq' ? 'Groq API Key' : 'Gemini API Key'}
+            Groq API Key
           </label>
           <input
             id="api-key"
@@ -208,22 +164,17 @@ export function Settings() {
             autoComplete="off"
             value={apiKey}
             onChange={(e) => setApiKeyInput(e.target.value)}
-            placeholder={provider === 'groq' ? 'gsk_...' : 'AIza...'}
+            placeholder="gsk_..."
             className="w-full rounded-2xl border border-stone-200 bg-white/80 px-4 py-3 text-[15px] text-ink
               focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300"
           />
           <p className="text-xs text-stone-400 mt-2 leading-relaxed">
-            Key 只會存在這個瀏覽器的 localStorage，分析時會直接從瀏覽器呼叫{' '}
-            {provider === 'groq' ? 'Groq' : 'Google 的 Gemini'} API，不會經過任何伺服器，也不需要付費。可以到{' '}
-            <a
-              href={provider === 'groq' ? 'https://console.groq.com/keys' : 'https://aistudio.google.com/apikey'}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sage-600 underline"
-            >
-              {provider === 'groq' ? 'console.groq.com/keys' : 'aistudio.google.com/apikey'}
+            Key 只會存在這個瀏覽器的 localStorage，分析時會直接從瀏覽器呼叫 Groq API，不會經過任何伺服器，也不需要付費。可以到{' '}
+            <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-sage-600 underline">
+              console.groq.com/keys
             </a>{' '}
-            免費申請（不需要信用卡）。免費額度有速率限制，一般個人使用足夠。
+            免費申請（不需要信用卡）。免費額度有速率限制，一般個人使用足夠。Groq 是否能從瀏覽器直接呼叫還沒有把握（多數 API
+            服務是設計給伺服器用的），先儲存並按「測試連線」在你的裝置上實際確認看看。
           </p>
         </div>
 
@@ -236,12 +187,12 @@ export function Settings() {
             type="text"
             value={model}
             onChange={(e) => setModelInput(e.target.value)}
-            placeholder={DEFAULT_MODELS[provider]}
+            placeholder={DEFAULT_MODEL}
             className="w-full rounded-2xl border border-stone-200 bg-white/80 px-4 py-3 text-[15px] text-ink
               focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300"
           />
           <p className="text-xs text-stone-400 mt-2 leading-relaxed">
-            預設 {DEFAULT_MODELS[provider]}，屬於免費額度內的模型。如果之後調整了免費模型名稱，可以在這裡改成新的名稱，不需要更新 App。
+            預設 {DEFAULT_MODEL}，屬於免費額度內的模型。如果之後調整了免費模型名稱，可以在這裡改成新的名稱，不需要更新 App。
           </p>
         </div>
       </div>
@@ -268,9 +219,8 @@ export function Settings() {
       <div className="card bg-stone-50/70 mb-6">
         <p className="text-xs text-stone-500 leading-relaxed">
           設定 API Key 後，「每週回顧」、「月回顧」、日記紀錄與每日小問題頁面會出現「AI
-          分析」按鈕，會把對應的紀錄內容送到你選擇的 AI 服務做情緒分析與建議，屬於選用功能、不會自動執行。不設定 Key
-          也完全不影響其他功能，仍會顯示免費的關鍵字式分析。這是你的個人紀錄，請自行評估是否要將內容送到第三方 API
-          分析。切換 AI 服務不會刪除另一個服務已經存的 Key 和模型設定。
+          分析」按鈕，會把對應的紀錄內容送到 Groq 做情緒分析與建議，屬於選用功能、不會自動執行。不設定 Key
+          也完全不影響其他功能，仍會顯示免費的關鍵字式分析。這是你的個人紀錄，請自行評估是否要將內容送到第三方 API 分析。
         </p>
       </div>
 

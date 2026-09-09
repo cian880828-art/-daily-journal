@@ -1,159 +1,26 @@
 import type { JournalEntry } from '../types/journal'
 import type { AiDailyInsight, AiMonthlyInsight, AiPromptInsight, AiWeeklyInsight } from '../types/aiInsight'
 import { addDays, formatDateLabel, lastNDays } from './dateUtils'
-import { getApiKey, getModel, getProvider, getUserContext } from './aiSettings'
+import { getApiKey, getModel, getUserContext } from './aiSettings'
 import { readCachedInsight } from './useAiInsight'
 
-/** Thin clients for the supported AI providers (Gemini, Groq), called
- * directly from the browser with the user's own key — no backend, so
- * whether a provider works at all depends on it allowing direct
- * cross-origin browser calls (CORS). Gemini's legacy REST endpoint is
- * used deliberately instead of the `@google/genai` SDK: the SDK's newer
- * "Interactions API" path sets an `Api-Revision` header that Gemini's
- * CORS config doesn't allow, which breaks entirely in the browser. The
- * legacy `generateContent` endpoint never sets that header and works
- * fine cross-origin with just `Content-Type: application/json` and the
- * key on the query string. */
+/** Thin client for Groq, the only supported AI provider — called directly
+ * from the browser with the user's own key, no backend involved. Groq
+ * (like most LLM providers) is built for server-side use; whether it
+ * allows direct browser calls at all depends on its own CORS policy,
+ * which can only really be confirmed by trying it from a real browser —
+ * the network-failure message below is worded to cover that possibility
+ * rather than claiming a definite cause the browser doesn't expose. */
 
 export class AiConfigError extends Error {}
 export class AiRequestError extends Error {}
 
-function endpointUrl(model: string, apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
-}
-
-/** Dispatches to whichever provider is currently configured in Settings.
- * responseSchema is Gemini-specific JSON-guided decoding — Groq's
- * OpenAI-compatible API has no equivalent, so for Groq we rely on its
- * `response_format: json_object` mode plus the schema already being
- * spelled out in each analyze* function's userText prompt. */
-async function callAi(
-  systemInstruction: string,
-  userText: string,
-  maxOutputTokens: number,
-  responseSchema: object,
-): Promise<string> {
-  const provider = getProvider()
-  if (provider === 'groq') {
-    return callGroq(systemInstruction, userText, maxOutputTokens)
-  }
-  return callGemini(systemInstruction, userText, maxOutputTokens, responseSchema)
-}
-
-async function callGemini(
-  systemInstruction: string,
-  userText: string,
-  maxOutputTokens: number,
-  responseSchema: object,
-): Promise<string> {
-  const apiKey = getApiKey('gemini')
-  if (!apiKey) {
-    throw new AiConfigError('尚未設定 Gemini API Key，請先到設定頁輸入。')
-  }
-  const model = getModel('gemini')
-
-  // Without this, a hung request (bad network, silent rate-limit, etc.)
-  // leaves the caller's loading state stuck forever with no way to
-  // recover except reloading the page.
-  const TIMEOUT_MS = 30_000
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
-  let response: Response
-  try {
-    response = await fetch(endpointUrl(model, apiKey), {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: 'user', parts: [{ text: userText }] }],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens,
-          responseMimeType: 'application/json',
-          // Constrains generation to this exact shape (JSON-guided
-          // decoding), rather than trusting the model to follow a JSON
-          // description we put in the prompt text — this is what
-          // actually fixed the "AI 回覆格式異常" failures; describing
-          // the shape in the prompt alone was not reliable enough.
-          responseSchema,
-          // Deliberately no thinkingConfig here: the field name/shape
-          // for disabling thinking isn't consistent across Gemini model
-          // generations (thinkingBudget vs thinkingLevel), and sending
-          // one a given model doesn't recognize gets the whole request
-          // rejected with a 400 "invalid argument" — worse than just
-          // leaving thinking on. The thought-part filtering below plus
-          // responseSchema are enough to get a reliably parseable answer
-          // either way.
-        },
-      }),
-    })
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new AiRequestError('連線逾時，請確認網路連線後再試一次。')
-    }
-    throw new AiRequestError('無法連線到 Gemini API，請檢查網路連線。')
-  } finally {
-    clearTimeout(timeoutId)
-  }
-
-  if (!response.ok) {
-    let message = `Gemini API 回應錯誤（HTTP ${response.status}）`
-    try {
-      const errBody = await response.json()
-      if (errBody?.error?.message) message = errBody.error.message
-    } catch {
-      // keep default message
-    }
-    if (response.status === 400 || response.status === 403) {
-      throw new AiConfigError(`API Key 可能不正確或沒有權限：${message}`)
-    }
-    if (response.status === 429) {
-      throw new AiRequestError('已達免費額度的速率限制，請稍後再試一次。')
-    }
-    throw new AiRequestError(message)
-  }
-
-  const data = await response.json()
-
-  const finishReason = data?.candidates?.[0]?.finishReason
-  if (finishReason === 'SAFETY' || finishReason === 'PROHIBITED_CONTENT') {
-    throw new AiRequestError('這次的內容被安全機制擋下了，可以試著調整內容後再分析一次。')
-  }
-
-  // On thinking-capable models, the response can include "thought" parts
-  // (reasoning) alongside the real answer part — those must be excluded,
-  // or their prose gets concatenated into the JSON text and breaks
-  // parsing.
-  const parts: { text?: string; thought?: boolean }[] = data?.candidates?.[0]?.content?.parts ?? []
-  const text = parts
-    .filter((p) => !p.thought)
-    .map((p) => p.text ?? '')
-    .join('')
-
-  if (!text.trim()) {
-    if (finishReason === 'MAX_TOKENS') {
-      throw new AiRequestError('這次分析的內容太長被截斷了，請再試一次。')
-    }
-    throw new AiRequestError('Gemini 沒有回傳內容，請再試一次。')
-  }
-  return text
-}
-
-/** Groq's API is OpenAI-compatible (chat/completions), called the same
- * way — direct fetch, no SDK. Unlike Gemini's endpoint, Groq (like most
- * LLM providers) is built for server-side use; whether it allows direct
- * browser calls at all is unverified here and depends on Groq's own CORS
- * policy, which can only really be confirmed by trying it from a real
- * browser. A network failure below is worded to cover that possibility
- * rather than claiming a definite cause the browser doesn't expose. */
-async function callGroq(systemInstruction: string, userText: string, maxOutputTokens: number): Promise<string> {
-  const apiKey = getApiKey('groq')
+async function callAi(systemInstruction: string, userText: string, maxOutputTokens: number): Promise<string> {
+  const apiKey = getApiKey()
   if (!apiKey) {
     throw new AiConfigError('尚未設定 Groq API Key，請先到設定頁輸入。')
   }
-  const model = getModel('groq')
+  const model = getModel()
 
   // Groq's json_object mode validates server-side that the model's raw
   // output actually parses as JSON, and rejects the request with a 400
@@ -192,7 +59,7 @@ async function callGroq(systemInstruction: string, userText: string, maxOutputTo
         throw new AiRequestError('連線逾時，請確認網路連線後再試一次。')
       }
       throw new AiRequestError(
-        '無法連線到 Groq API。這可能是網路問題，也可能是 Groq 不允許瀏覽器直接呼叫（CORS）——如果一直發生，建議改回 Gemini。',
+        '無法連線到 Groq API。這可能是網路問題，也可能是 Groq 不允許瀏覽器直接呼叫（CORS）。',
       )
     } finally {
       clearTimeout(timeoutId)
@@ -256,24 +123,13 @@ function parseJson<T>(raw: string): T {
     // Logged (not shown to the user) so a real failure can still be
     // diagnosed from the browser console instead of being a total
     // black box.
-    console.error('[daily-journal] Gemini response failed to parse as JSON:', raw)
+    console.error('[daily-journal] Groq response failed to parse as JSON:', raw)
     throw new AiRequestError('AI 回覆格式異常，請再試一次。')
   }
 }
 
-const CONNECTION_TEST_SCHEMA = {
-  type: 'OBJECT',
-  properties: { ok: { type: 'BOOLEAN' } },
-  required: ['ok'],
-}
-
 export async function testConnection(): Promise<void> {
-  await callAi(
-    '你只需要用繁體中文回覆一個 JSON：{"ok": true}，不要加其他文字。',
-    '請確認連線。',
-    200,
-    CONNECTION_TEST_SCHEMA,
-  )
+  await callAi('你只需要用繁體中文回覆一個 JSON：{"ok": true}，不要加其他文字。', '請確認連線。', 200)
 }
 
 const SYSTEM_PREAMBLE = `你是一個溫柔、不帶批判的自我覺察助手，幫助使用者從日記內容中看見自己的情緒模式。
@@ -312,18 +168,6 @@ ${context}
 `
 }
 
-const WEEKLY_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    realEvents: { type: 'STRING' },
-    patterns: { type: 'STRING' },
-    whatHelped: { type: 'STRING' },
-    expectedVsActual: { type: 'STRING' },
-    nextWeekWatch: { type: 'STRING' },
-  },
-  required: ['realEvents', 'patterns', 'whatHelped', 'expectedVsActual', 'nextWeekWatch'],
-}
-
 /** Weekly leans recent — real events and short-window patterns — as
  * opposed to analyzeMonth, which leans longer-term trends and change.
  * Same "only say what the entries actually support" discipline as the
@@ -341,32 +185,8 @@ ${serializeEntries(entries)}
 - whatHelped（什麼讓我變好一點）：這週有沒有什麼具體的事、行為或狀況，讓心情確實有轉好；如果整週都持平或往下，誠實地說沒有明顯讓心情變好的事，不要硬找
 - expectedVsActual（原本擔心 vs 實際發生）：這週有沒有原本擔心、預期的事，最後實際發生的狀況和擔心的不一樣（變好或變糟都算），沒有這種對照就留空
 - nextWeekWatch（下週值得觀察的一件事）：根據這週的內容，給一個下週可以留意、觀察的具體方向或問題，是一個觀察角度，不是待辦清單`
-  const raw = await callAi(SYSTEM_PREAMBLE, userText, 2048, WEEKLY_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 2048)
   return parseJson<AiWeeklyInsight>(raw)
-}
-
-const DAILY_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    coreEvents: { type: 'STRING' },
-    emotionBreakdown: { type: 'STRING' },
-    underlyingNeeds: { type: 'STRING' },
-    coreWound: { type: 'STRING' },
-    innerPattern: { type: 'STRING' },
-    reframe: { type: 'STRING' },
-    nextStep: { type: 'STRING' },
-    nextStepCategories: { type: 'ARRAY', items: { type: 'STRING' } },
-  },
-  required: [
-    'coreEvents',
-    'emotionBreakdown',
-    'underlyingNeeds',
-    'coreWound',
-    'innerPattern',
-    'reframe',
-    'nextStep',
-    'nextStepCategories',
-  ],
 }
 
 /** Fixed vocabulary for nextStep's technique category, tracked per day so
@@ -502,17 +322,8 @@ ${serializeEntries([entry])}
 
 如果今天其實過得很好、沒有明顯問題，就單純分析為什麼今天好，不需要挖出隱藏問題，coreWound 可以直接說明今天心情穩定、正向。`
 
-  const raw = await callAi(DAILY_SYSTEM_PREAMBLE, userText, 4096, DAILY_SCHEMA)
+  const raw = await callAi(DAILY_SYSTEM_PREAMBLE, userText, 4096)
   return parseJson<AiDailyInsight>(raw)
-}
-
-const PROMPT_INSIGHT_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    reflection: { type: 'STRING' },
-    nextStep: { type: 'STRING' },
-  },
-  required: ['reflection', 'nextStep'],
 }
 
 export async function analyzePrompt(question: string, answer: string): Promise<AiPromptInsight> {
@@ -524,7 +335,7 @@ export async function analyzePrompt(question: string, answer: string): Promise<A
 請根據這個回答，用像貼心朋友的語氣（不要說教，字串內容一律繁體中文）分析：
 - reflection：1-2 句話，回應這個答案本身，讓使用者感覺被理解，不要重複問題
 - nextStep：1 個具體、溫和、今天或明天就能做的小建議，針對這個答案客製化`
-  const raw = await callAi(SYSTEM_PREAMBLE, userText, 1024, PROMPT_INSIGHT_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 1024)
   return parseJson<AiPromptInsight>(raw)
 }
 
@@ -532,20 +343,6 @@ export async function analyzePrompt(question: string, answer: string): Promise<A
  * result is stale (an entry in range was added/edited since). */
 export function computeFingerprint(entries: JournalEntry[]): string {
   return entries.map((e) => `${e.date}:${e.updatedAt}`).join('|')
-}
-
-const MONTHLY_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    patterns: { type: 'STRING' },
-    coreNeed: { type: 'STRING' },
-    whatDrains: { type: 'STRING' },
-    whatRestores: { type: 'STRING' },
-    whatChanged: { type: 'STRING' },
-    recentSelf: { type: 'STRING' },
-    nextMonthWatch: { type: 'STRING' },
-  },
-  required: ['patterns', 'coreNeed', 'whatDrains', 'whatRestores', 'whatChanged', 'recentSelf', 'nextMonthWatch'],
 }
 
 /** Monthly leans long-term — trends, core needs, and change across the
@@ -566,6 +363,6 @@ ${serializeEntries(entries)}
 - whatChanged（這個月有什麼變了）：跟這個月稍早比起來，月底或最近有什麼確實不一樣的地方（心情、想法、行為都算）；如果沒有明顯變化，直接說大致持平，不要硬找變化
 - recentSelf（最近的我）：只看這個月最後幾天的紀錄，最近的狀態是什麼樣子，可以跟整個月的整體狀態不同
 - nextMonthWatch（下個月值得觀察的一件事）：根據這個月的內容，給下個月一個值得觀察的具體方向，是一個觀察角度，不是待辦清單`
-  const raw = await callAi(SYSTEM_PREAMBLE, userText, 3072, MONTHLY_SCHEMA)
+  const raw = await callAi(SYSTEM_PREAMBLE, userText, 3072)
   return parseJson<AiMonthlyInsight>(raw)
 }

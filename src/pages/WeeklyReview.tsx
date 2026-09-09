@@ -103,7 +103,7 @@ function AiSection({ ai }: { ai: ReturnType<typeof useAiInsight<AiWeeklyInsight>
       <div className="card bg-stone-50/70">
         <p className="text-sm text-stone-600 mb-2">想要更深入的 AI 情緒分析與建議嗎？</p>
         <p className="text-xs text-stone-400 mb-3">
-          免費申請一組 Gemini API Key 就能使用，資料只會從你的瀏覽器直接送到 Google。
+          免費申請一組 Groq API Key 就能使用，資料只會從你的瀏覽器直接送到 Groq。
         </p>
         <Link to="/settings" className="btn-secondary inline-flex">
           前往設定
