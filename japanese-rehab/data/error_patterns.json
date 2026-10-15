@@ -1,0 +1,17 @@
+{
+  "_comment": "規則式錯誤偵測。regex 命中 = 確定的錯誤；fix 為 re.sub 的替換字串（可省略）。category: particle/conjugation/connection/meaning/naturalness/other",
+  "patterns": [
+    {"id":"nakude-mo","grammar":"N4-nakutemo-ii","category":"conjugation","regex":"なくでも","fix":"なくても","message":"「ない形去い＋くて」：飲まなくても，不是飲まなくでも。"},
+    {"id":"nakude-wa","grammar":"N4-nakutewa-ikenai","category":"conjugation","regex":"なくでは","fix":"なくては","message":"「ない形去い＋くて」：行かなくては，不是行かなくでは。"},
+    {"id":"nai-kute","grammar":"N4-nakutemo-ii","category":"conjugation","regex":"ないくて","fix":"なくて","message":"ない要去掉「い」再加「くて」：飲まなくて，不是飲まないくて。"},
+    {"id":"nai-kereba","grammar":"N4-nakereba-naranai","category":"conjugation","regex":"(?:ない|なく)ければ","fix":"なければ","message":"ない形去い＋ければ：行かなければ。"},
+    {"id":"i-adj-nara","grammar":"N4-nara","category":"connection","regex":"(?:良|よ|高|たか|安|やす|悪|わる|多|おお|少な|すくな|早|はや|遅|おそ|大き|おおき|小さ|ちいさ|新し|あたらし|古|ふる|暑|あつ|寒|さむ|忙し|いそがし|難し|むずかし|易し|やさし|楽し|たのし|おいし|美味し)くなら(?!ない|なかっ|なく|なり|なっ)","message":"い形容詞＋なら要直接接普通形（高いなら）；若是「變得～之後」要用～くなったら（良くなったら）。"},
+    {"id":"da-nara","grammar":"N4-nara","category":"connection","regex":"だなら","fix":"なら","message":"名詞・な形容詞接なら時不加「だ」：学生なら、静かなら。"},
+    {"id":"da-kamo","grammar":"N4-kamoshirenai","category":"connection","regex":"[だな]かもしれ","fix":"かもしれ","message":"名詞・な形容詞＋かもしれない，中間不加「だ」「な」：静かかもしれない、学生かもしれない。"},
+    {"id":"masu-kamo","grammar":"N4-kamoshirenai","category":"connection","regex":"(?:ます|ました|です|でした)かもしれ","message":"かもしれない前面接普通形，不接ます形：食べるかもしれない。"},
+    {"id":"da-node","grammar":"N4-node","category":"connection","regex":"だので","fix":"なので","message":"名詞・な形容詞＋ので要用「な」：学生なので、静かなので。"},
+    {"id":"no-koto","grammar":"N4-koto-ga-dekiru","category":"connection","regex":"[るうくぐすつぬぶむ]のことができ","message":"動詞辭書形直接接ことができる，不加「の」：食べることができる。"},
+    {"id":"ta-koto-dekiru","grammar":"N4-koto-ga-dekiru","category":"connection","regex":"[たんだ]ことができ","message":"ことができる前面用辭書形；た形＋ことがある是『經驗』。"},
+    {"id":"noun-koto-dekiru","grammar":"N4-koto-ga-dekiru","category":"particle","regex":"(?:日本語|英語|漢字|料理)ことができ","message":"名詞後面要有動詞：日本語を話すことができる，或直接說日本語ができる。"}
+  ]
+}

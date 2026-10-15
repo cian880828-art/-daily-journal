@@ -1,0 +1,34 @@
+{
+  "_comment": "手寫練習題。type: translate(中翻日)/compose(自行造句)。key_parts: 每組是同義寫法，全部組別都出現才算『規則判定正確』。uses: 混用的已 PASS 文法。level: 1簡單→3複合。",
+  "exercises": [
+    {"id":"nm-1","grammar":"N4-nakutemo-ii","scenario":"daily","type":"translate","level":1,"prompt_zh":"明天不用早起也可以。","accepted":["明日は早く起きなくてもいいです。"],"key_parts":[["明日","あした"],["起きなくてもい","おきなくてもい"]],"hint":"起きる → 起きない → 起きなくても"},
+    {"id":"nm-2","grammar":"N4-nakutemo-ii","scenario":"work","type":"translate","level":1,"prompt_zh":"這份資料今天不用交也可以。","accepted":["この資料は今日出さなくてもいいです。"],"key_parts":[["資料","しりょう"],["出さなくてもい","ださなくてもい","提出しなくてもい","ていしゅつしなくてもい"]],"hint":"出す → 出さない → 出さなくても"},
+    {"id":"nm-3","grammar":"N4-nakutemo-ii","scenario":"food","type":"translate","level":1,"prompt_zh":"這間店不用預約也可以。","accepted":["この店は予約しなくてもいいです。"],"key_parts":[["予約しなくてもい","よやくしなくてもい"]],"hint":"予約する → 予約しない → 予約しなくても"},
+    {"id":"nm-4","grammar":"N4-nakutemo-ii","scenario":"shopping","type":"translate","level":2,"prompt_zh":"不用辦會員卡也可以，所以我不辦。","accepted":["カードは作らなくてもいいので、作りません。"],"key_parts":[["作らなくてもい","つくらなくてもい","作らなくてもよ"],["ので"]],"uses":["N4-node"],"hint":"作る → 作らない → 作らなくても；原因用ので"},
+    {"id":"nm-5","grammar":"N4-nakutemo-ii","scenario":"friends","type":"translate","level":2,"prompt_zh":"週末的聚會，如果你很累的話，不用來也可以。","accepted":["疲れているなら、来なくてもいいですよ。"],"key_parts":[["疲れて","つかれて"],["なら","たら"],["来なくてもい","こなくてもい"]],"uses":["N4-nara"],"hint":"来る → 来ない（こない）→ 来なくても；針對對方的狀況用なら"},
+    {"id":"nm-6","grammar":"N4-nakutemo-ii","scenario":"health","type":"translate","level":2,"prompt_zh":"燒已經退了，所以不用吃藥也可以。","accepted":["熱が下がったので、薬を飲まなくてもいいです。"],"key_parts":[["熱","ねつ"],["飲まなくてもい","のまなくてもい"]],"uses":["N4-node"],"hint":"飲む → 飲まない → 飲まなくても"},
+    {"id":"nm-7","grammar":"N4-nakutemo-ii","scenario":"friends","type":"translate","level":2,"prompt_zh":"今天不用等我，你們先吃也可以。","accepted":["今日は待たなくてもいいので、先に食べてもいいですよ。"],"key_parts":[["待たなくてもい","またなくてもい"],["先に","さきに"],["食べてもい","たべてもい"]],"uses":["N4-temo-ii"],"hint":"待つ → 待たない → 待たなくても；許可是～てもいい"},
+    {"id":"nm-8","grammar":"N4-nakutemo-ii","scenario":"travel","type":"translate","level":3,"prompt_zh":"這間飯店的早餐不用預約也可以，但是晚餐必須預約。","accepted":["このホテルでは、朝ごはんは予約しなくてもいいですが、晩ごはんは予約しなければなりません。"],"key_parts":[["予約しなくてもい","よやくしなくてもい"],["予約しなければ","よやくしなければ","予約しなくてはいけ","よやくしなくてはいけ"]],"uses":["N4-nakereba-naranai"],"hint":"不做也可以＝なくてもいい；必須做＝なければならない"},
+
+    {"id":"kk-1","grammar":"N4-kamoshirenai","scenario":"daily","type":"translate","level":1,"prompt_zh":"明天可能會下雨。","accepted":["明日は雨が降るかもしれません。"],"key_parts":[["降るかもしれ","ふるかもしれ"],["雨","あめ"]],"hint":"動詞普通形＋かもしれません"},
+    {"id":"kk-2","grammar":"N4-kamoshirenai","scenario":"work","type":"translate","level":1,"prompt_zh":"山田先生今天可能會遲到。","accepted":["山田さんは今日、遅れるかもしれません。"],"key_parts":[["遅れるかもしれ","おくれるかもしれ"]],"hint":"遅れる＋かもしれません"},
+    {"id":"kk-3","grammar":"N4-kamoshirenai","scenario":"food","type":"translate","level":2,"prompt_zh":"那間餐廳可能很貴，所以我多帶一點錢去。","accepted":["あのレストランは高いかもしれないので、お金をたくさん持って行きます。"],"key_parts":[["高いかもしれ","たかいかもしれ"],["ので"]],"uses":["N4-node"],"hint":"い形容詞普通形（高い）直接接かもしれない"},
+    {"id":"kk-4","grammar":"N4-kamoshirenai","scenario":"health","type":"translate","level":2,"prompt_zh":"你臉色不太好，也許是感冒。","accepted":["顔色が悪いですね。風邪かもしれません。"],"key_parts":[["風邪かもしれ","かぜかもしれ"]],"hint":"名詞直接接かもしれない，不加だ／な"},
+    {"id":"kk-5","grammar":"N4-kamoshirenai","scenario":"shopping","type":"translate","level":3,"prompt_zh":"這件外套可能太小了，所以我試穿大一點的尺寸。","accepted":["このコートは小さすぎるかもしれないので、大きいサイズを試着します。"],"key_parts":[["小さすぎるかもしれ","ちいさすぎるかもしれ"],["ので"]],"uses":["N4-sugiru","N4-node"],"hint":"小さい＋すぎる → 小さすぎる＋かもしれない"},
+    {"id":"kk-6","grammar":"N4-kamoshirenai","scenario":"leisure","type":"translate","level":3,"prompt_zh":"如果明天天氣好，我可能會去公園散步。","accepted":["明日天気が良かったら、公園を散歩するかもしれません。"],"key_parts":[["良かったら","よかったら"],["かもしれ"]],"uses":["N4-tara"],"hint":"天氣好了之後＝たら（い形容詞：良かったら）"},
+    {"id":"kk-7","grammar":"N4-kamoshirenai","scenario":"travel","type":"translate","level":2,"prompt_zh":"這附近的店可能已經關了。","accepted":["この辺の店はもう閉まっているかもしれません。"],"key_parts":[["閉まって","しまって"],["かもしれ"]],"hint":"閉まる＋ている＋かもしれません"},
+
+    {"id":"kd-1","grammar":"N4-koto-ga-dekiru","scenario":"leisure","type":"translate","level":1,"prompt_zh":"我會游泳。","accepted":["私は泳ぐことができます。"],"key_parts":[["泳ぐことが","およぐことが"],["できま","出来ま"]],"hint":"辭書形＋ことができます"},
+    {"id":"kd-2","grammar":"N4-koto-ga-dekiru","scenario":"work","type":"translate","level":1,"prompt_zh":"在這間公司可以在家工作。","accepted":["この会社では家で仕事をすることができます。"],"key_parts":[["することが","働くことが","はたらくことが"],["できま","出来ま"]],"hint":"仕事をする → 仕事をすることができる"},
+    {"id":"kd-3","grammar":"N4-koto-ga-dekiru","scenario":"shopping","type":"translate","level":2,"prompt_zh":"這間店可以用信用卡付款。","accepted":["この店ではクレジットカードで払うことができます。"],"key_parts":[["払うことが","はらうことが","支払うことが","しはらうことが"],["カード"],["できま","出来ま"]],"hint":"払う＋ことができる；手段用で"},
+    {"id":"kd-4","grammar":"N4-koto-ga-dekiru","scenario":"food","type":"translate","level":2,"prompt_zh":"我不能吃辣的東西。","accepted":["辛い物を食べることができません。"],"key_parts":[["食べることができません","たべることができません","食べることができない","たべることができない"]],"hint":"否定：ことができません"},
+    {"id":"kd-5","grammar":"N4-koto-ga-dekiru","scenario":"daily","type":"translate","level":2,"prompt_zh":"我會說日文，但是不會寫很難的漢字。","accepted":["日本語を話すことができますが、難しい漢字を書くことができません。"],"key_parts":[["話すことが","はなすことが"],["書くことができ","かくことができ"],["ません","ない"]],"hint":"兩個動詞都用辭書形＋ことができる"},
+    {"id":"kd-6","grammar":"N4-koto-ga-dekiru","scenario":"friends","type":"translate","level":3,"prompt_zh":"如果明天休息，就能和朋友見面。","accepted":["明日休みだったら、友達に会うことができます。"],"key_parts":[["休みだったら","やすみだったら"],["会うことが","あうことが"]],"uses":["N4-tara"],"hint":"名詞的條件：休みだったら；会う＋ことができる"},
+    {"id":"kd-7","grammar":"N4-koto-ga-dekiru","scenario":"travel","type":"translate","level":3,"prompt_zh":"在車站可以買到便宜的車票，所以先去車站比較好。","accepted":["駅で安い切符を買うことができるので、先に駅へ行ったほうがいいです。"],"key_parts":[["買うことが","かうことが"],["ので"],["ほうがいい","方がいい","ほうが いい"]],"uses":["N4-node","N4-hou-ga-ii"],"hint":"理由＋ので；建議＋た形＋ほうがいい"},
+
+    {"id":"rv-tara-1","grammar":"N4-tara","scenario":"work","type":"translate","level":2,"prompt_zh":"工作結束之後，我想和朋友去喝酒。","accepted":["仕事が終わったら、友達とお酒を飲みに行きたいです。"],"key_parts":[["終わったら","おわったら"],["飲み","のみ"]],"uses":["N5-tai"],"hint":"完成之後＝たら"},
+    {"id":"rv-tara-2","grammar":"N4-tara","scenario":"daily","type":"translate","level":2,"prompt_zh":"如果天氣變好，我想去散步。","accepted":["天気が良くなったら、散歩に行きたいです。"],"key_parts":[["良くなったら","よくなったら"],["散歩","さんぽ"]],"uses":["N5-tai"],"hint":"變好之後：良くなったら（不是良くなら）"},
+    {"id":"rv-nara-1","grammar":"N4-nara","scenario":"travel","type":"translate","level":2,"prompt_zh":"（對方說要去大阪）如果要去大阪的話，章魚燒很好吃喔。","accepted":["大阪へ行くなら、たこ焼きがおいしいですよ。"],"key_parts":[["行くなら","いくなら"],["たこ焼き","たこやき"]],"hint":"針對對方說的計畫給建議＝なら"},
+    {"id":"rv-nara-2","grammar":"N4-nara","scenario":"shopping","type":"translate","level":2,"prompt_zh":"（對方說想買便宜的鞋）如果想要便宜的，那間店不錯喔。","accepted":["安いのがほしいなら、あの店がいいですよ。"],"key_parts":[["なら"],["店","みせ"]],"hint":"ほしい＋なら；針對對方的需求提出建議"}
+  ]
+}

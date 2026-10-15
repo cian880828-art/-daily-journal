@@ -1,0 +1,56 @@
+{
+  "_comment": "活用練習用詞庫。group: godan/ichidan/suru/kuru。",
+  "verbs": [
+    {"kanji":"飲む","kana":"のむ","group":"godan","gloss":"喝"},
+    {"kanji":"食べる","kana":"たべる","group":"ichidan","gloss":"吃"},
+    {"kanji":"行く","kana":"いく","group":"godan","gloss":"去"},
+    {"kanji":"見る","kana":"みる","group":"ichidan","gloss":"看"},
+    {"kanji":"書く","kana":"かく","group":"godan","gloss":"寫"},
+    {"kanji":"読む","kana":"よむ","group":"godan","gloss":"讀"},
+    {"kanji":"買う","kana":"かう","group":"godan","gloss":"買"},
+    {"kanji":"待つ","kana":"まつ","group":"godan","gloss":"等"},
+    {"kanji":"話す","kana":"はなす","group":"godan","gloss":"說"},
+    {"kanji":"帰る","kana":"かえる","group":"godan","gloss":"回家"},
+    {"kanji":"休む","kana":"やすむ","group":"godan","gloss":"休息"},
+    {"kanji":"働く","kana":"はたらく","group":"godan","gloss":"工作"},
+    {"kanji":"泳ぐ","kana":"およぐ","group":"godan","gloss":"游泳"},
+    {"kanji":"遊ぶ","kana":"あそぶ","group":"godan","gloss":"玩"},
+    {"kanji":"作る","kana":"つくる","group":"godan","gloss":"做、製作"},
+    {"kanji":"使う","kana":"つかう","group":"godan","gloss":"使用"},
+    {"kanji":"歩く","kana":"あるく","group":"godan","gloss":"走路"},
+    {"kanji":"乗る","kana":"のる","group":"godan","gloss":"搭乘"},
+    {"kanji":"払う","kana":"はらう","group":"godan","gloss":"付款"},
+    {"kanji":"頼む","kana":"たのむ","group":"godan","gloss":"拜託、點（餐）"},
+    {"kanji":"出す","kana":"だす","group":"godan","gloss":"交出、拿出"},
+    {"kanji":"聞く","kana":"きく","group":"godan","gloss":"聽、問"},
+    {"kanji":"会う","kana":"あう","group":"godan","gloss":"見面"},
+    {"kanji":"持つ","kana":"もつ","group":"godan","gloss":"拿、帶"},
+    {"kanji":"起きる","kana":"おきる","group":"ichidan","gloss":"起床"},
+    {"kanji":"寝る","kana":"ねる","group":"ichidan","gloss":"睡覺"},
+    {"kanji":"着る","kana":"きる","group":"ichidan","gloss":"穿"},
+    {"kanji":"降りる","kana":"おりる","group":"ichidan","gloss":"下（車）"},
+    {"kanji":"答える","kana":"こたえる","group":"ichidan","gloss":"回答"},
+    {"kanji":"予約する","kana":"よやくする","group":"suru","gloss":"預約"},
+    {"kanji":"勉強する","kana":"べんきょうする","group":"suru","gloss":"讀書"},
+    {"kanji":"来る","kana":"くる","group":"kuru","gloss":"來"}
+  ],
+  "i_adjectives": [
+    {"kanji":"高い","kana":"たかい","gloss":"貴、高"},
+    {"kanji":"安い","kana":"やすい","gloss":"便宜"},
+    {"kanji":"忙しい","kana":"いそがしい","gloss":"忙碌"},
+    {"kanji":"寒い","kana":"さむい","gloss":"冷"},
+    {"kanji":"遠い","kana":"とおい","gloss":"遠"}
+  ],
+  "na_adjectives": [
+    {"kanji":"静か","kana":"しずか","gloss":"安靜"},
+    {"kanji":"便利","kana":"べんり","gloss":"方便"},
+    {"kanji":"元気","kana":"げんき","gloss":"有精神"},
+    {"kanji":"大変","kana":"たいへん","gloss":"辛苦、嚴重"}
+  ],
+  "nouns": [
+    {"kanji":"学生","kana":"がくせい","gloss":"學生"},
+    {"kanji":"風邪","kana":"かぜ","gloss":"感冒"},
+    {"kanji":"休み","kana":"やすみ","gloss":"休假"},
+    {"kanji":"雨","kana":"あめ","gloss":"雨"}
+  ]
+}

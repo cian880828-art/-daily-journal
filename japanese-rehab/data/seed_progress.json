@@ -1,0 +1,36 @@
+{
+  "_comment": "初始進度（匯入自學習紀錄）。未列出的文法一律為 not_started。errors 的 state: active(尚未改正)/corrected_once(已改正一次)/stable(穩定掌握)。",
+  "as_of": "2026-10-15",
+  "current_grammar_id": "N4-nakutemo-ii",
+  "grammar": {
+    "N5-desu": {"status": "pass"},
+    "N5-janai": {"status": "pass"},
+    "N5-particles": {"status": "pass"},
+    "N5-aru-iru": {"status": "pass"},
+    "N5-tai": {"status": "pass"},
+    "N5-to-omou": {"status": "pass"},
+    "N4-temo-ii": {"status": "pass"},
+    "N4-tewa-ikenai": {"status": "pass"},
+    "N4-nagara": {"status": "pass"},
+    "N4-tari": {"status": "pass"},
+    "N4-node": {"status": "pass"},
+    "N4-koto-ga-aru": {"status": "pass"},
+    "N5-verb-forms": {"status": "pass", "note": "動詞活用仍需持續練習（辭書形／ない形／た形／普通形接續／長句串接）"},
+    "N4-tara": {"status": "pass", "note": "與～なら的區別已做 6 題判斷練習全對，之後在複合句中自然複習"},
+    "N4-sou-yotai": {"status": "pass"},
+    "N4-sugiru": {"status": "pass"},
+    "N4-hou-ga-ii": {"status": "pass"},
+    "N4-nakereba-naranai": {"status": "pass"},
+    "N4-nakutewa-ikenai": {"status": "pass"},
+    "N4-nara": {"status": "pass", "note": "與～たら的區別已做 6 題判斷練習全對"},
+    "N4-nakutemo-ii": {"status": "needs_work", "note": "已看過例句與部分綜合翻譯；曾出現「なくでも」接續錯誤，尚未正式確認 PASS"},
+    "N4-kamoshirenai": {"status": "learning", "note": "已接觸例句與日常情境，尚未完成正式掌握確認"},
+    "N4-koto-ga-dekiru": {"status": "learning", "note": "學習中／待確認。已看過辭書形＋ことができる與可能形（話せる），尚未正式練習"}
+  },
+  "errors": [
+    {"grammar_id": "N4-nakutemo-ii", "category": "conjugation", "signature": "nakude-mo", "description": "ない形去い＋くて 寫成「くで」（飲まなくでもいい、予約しなくでもいい）", "count": 2, "state": "active", "wrong": "飲まなくでもいい", "right": "飲まなくてもいい"},
+    {"grammar_id": "N4-nara", "category": "connection", "signature": "i-adj-nara", "description": "條件句接續：天気が良くなら（應依語意用 天気が良かったら／良くなったら）", "count": 1, "state": "corrected_once", "wrong": "天気が良くなら", "right": "天気が良かったら"},
+    {"grammar_id": "N4-tara", "category": "meaning", "signature": "tara-nara-confusion", "description": "混淆～たら與～なら", "count": 1, "state": "corrected_once", "wrong": "", "right": ""},
+    {"grammar_id": "N5-verb-forms", "category": "conjugation", "signature": "general", "description": "動詞變化與句型串接（辭書形／ない形／た形／普通形接續／長句）需持續練習", "count": 1, "state": "active", "wrong": "", "right": ""}
+  ]
+}
